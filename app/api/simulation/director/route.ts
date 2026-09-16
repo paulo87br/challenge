@@ -1,2 +1,2 @@
 import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT}from'@/lib/ai/prompts';
-export async function POST(req:Request){const input=await req.json();const r=await openai.responses.create({model,instructions:DIRECTOR_PROMPT,input:JSON.stringify(input)});return NextResponse.json({output:r.output_text})}
+export async function POST(req:Request){try{const input=await req.json();const r=await openai.responses.create({model,instructions:DIRECTOR_PROMPT,input:JSON.stringify(input),text:{format:{type:'json_object'}}});const parsed=JSON.parse(r.output_text);return NextResponse.json(parsed)}catch(error){console.error('director_error',error);return NextResponse.json({error:'director_failed'},{status:500})}}
