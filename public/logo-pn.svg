@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Logo PN — selo dourado com monograma monolinha -->
+  <circle cx="100" cy="100" r="95" fill="#C9A24B"/>
+  <circle cx="100" cy="100" r="82" fill="none" stroke="#0A0A0A" stroke-width="1" opacity="0.35"/>
+  <g transform="translate(97,100)" fill="none" stroke="#0A0A0A" stroke-width="7">
+    <!-- P em traço único -->
+    <path d="M -36 36 L -36 -36 H -14 A 20 20 0 0 1 -14 4 H -36"/>
+    <!-- N em traço contínuo -->
+    <path d="M 8 36 L 8 -36 L 42 36 L 42 -36"/>
+  </g>
+</svg>
