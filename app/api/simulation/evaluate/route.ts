@@ -1,2 +1,2 @@
-import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{EVALUATOR_PROMPT}from'@/lib/ai/prompts';
-export async function POST(req:Request){const input=await req.json();const r=await openai.responses.create({model,instructions:EVALUATOR_PROMPT,input:JSON.stringify(input)});return NextResponse.json({output:r.output_text})}
+import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{OBSERVER_PROMPT}from'@/lib/ai/prompts';
+export async function POST(req:Request){try{const input=await req.json();const r=await openai.responses.create({model,instructions:OBSERVER_PROMPT,input:JSON.stringify(input),text:{format:{type:'json_object'}}});return NextResponse.json(JSON.parse(r.output_text))}catch(error){console.error('observer_error',error);return NextResponse.json({error:'observer_failed'},{status:500})}}
