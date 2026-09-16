@@ -1,4 +1,4 @@
-export type Channel='mail'|'chat'|'assistant'|'files'|'calendar'|'call'|'world';
+export type Channel='mail'|'chat'|'feed'|'assistant'|'files'|'calendar'|'call'|'world';
 export type Temperature={ambiguity:number;timePressure:number;stakeholderConflict:number;informationNoise:number;technicalComplexity:number;incidentSeverity:number};
 export type CharacterTraits={directness:number;diplomacy:number;detailOrientation:number;politicalAwareness:number;riskAversion:number;technicalDepth:number;patience:number};
 export type CharacterState={mood:string;trustInParticipant:number;pressure:number;knownFacts:string[];memory:string[]};
