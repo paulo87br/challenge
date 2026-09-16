@@ -1,6 +1,42 @@
 import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';
-async function jsonResponse(instructions:string,input:unknown){const r=await openai.responses.create({model,instructions,input:JSON.stringify(input),text:{format:{type:'json_object'}}});if(!r.output_text)throw new Error('empty_model_output');return JSON.parse(r.output_text)}
-function fallbackDirector(world:any,action:any,target:any){const channel=action.channel==='mail'?'mail':'chat';const name=target?.name||'Colega';const known:string[]=target?.state?.knownFacts||[];const q=String(action.text||'').toLowerCase();let body='Recebi. Vou verificar e te retorno com o que eu conseguir confirmar.';if(target?.id==='rafael'&&known.includes('real_data_used')){if(/quais|qual dado|detalh|tipo de dado|dados foram/.test(q))body='Eu sei que foram dados reais, mas não tenho aqui o recorte exato dos campos usados. O time do piloto consegue levantar o dataset e os campos; se você quiser fechar a parte de privacidade, a Camila também deve conseguir dizer o que já foi mapeado.';else body='Foram usados dados reais no piloto. A ideia foi validar o comportamento num fluxo próximo de produção. Pelo que sei, compliance não participou dessa etapa.'}if(target?.id==='camila'&&known.includes('privacy_review_incomplete'))body='A revisão de privacidade ainda não foi concluída. Eu consigo te dizer o que já mapeamos, mas ainda precisamos confirmar base, finalidade e eventuais transferências antes da produção.';if(target?.id==='marina')body='Entendi. Conduza a validação e mantenha o impacto no prazo visível para mim. Se aparecer um bloqueio concreto, preciso saber exatamente qual é e o caminho para resolver.';return{summary:'Fallback de continuidade acionado',clock_advance_minutes:channel==='chat'?2:12,state_patch:{facts:{},flags:{},characters:[]},events:[{channel,sender:`${name} · ${target?.role||''}`,characterId:target?.id,body,urgency:.4,visible:true,reason:'Resposta de continuidade enquanto o motor generativo está indisponível'}]}}
-export async function POST(req:Request){try{const{world,action}=await req.json();if(!world||!action)return NextResponse.json({error:'world_and_action_required'},{status:400});const target=action.characterId?world.characters?.find((c:any)=>c.id===action.characterId):null;const conversationHistory=(world.events||[]).filter((e:any)=>{if(action.channel==='chat')return e.channel==='chat'&&(e.characterId===action.characterId||e.recipientCharacterId===action.characterId);if(action.channel==='mail')return e.channel==='mail'&&(e.characterId===action.characterId||e.recipientCharacterId===action.characterId);return false}).slice(-16).map((e:any)=>({sender:e.sender,body:e.body,subject:e.subject,at:e.at,direction:e.sender==='Você'?'participant_to_character':'character_to_participant'}));const context={world:{...world,telemetry:undefined,events:undefined},targetCharacter:target||undefined,conversationHistory,latestParticipantAction:action,recentTelemetry:[...(world.telemetry||[]).slice(-8),action],runtimeDirective:'Continue the existing conversation intelligently. Answer the latest message specifically; do not repeat information already given. If the requested detail is outside the target character knowledge, say so naturally rather than inventing it.'};let director;try{director=await jsonResponse(DIRECTOR_PROMPT,context)}catch(error){console.error('director_generation_error',error);director=fallbackDirector(world,action,target)}
-jsonResponse(OBSERVER_PROMPT,{seat:world.seat,temperature:world.temperature,targetCharacter:target,recentTelemetry:[...(world.telemetry||[]).slice(-12),action]}).catch(error=>console.error('observer_generation_error',error));
-return NextResponse.json({director})}catch(error){console.error('turn_error',error);return NextResponse.json({error:'turn_failed'},{status:500})}}
+
+async function jsonResponse(instructions:string,input:unknown){
+ const r=await openai.responses.create({model,instructions,input:JSON.stringify(input),text:{format:{type:'json_object'}}});
+ if(r.status==='failed')throw new Error(`model_failed:${r.error?.code||'unknown'}:${r.error?.message||'no_message'}`);
+ if(r.status==='incomplete')throw new Error(`model_incomplete:${r.incomplete_details?.reason||'unknown'}`);
+ if(!r.output_text)throw new Error(`empty_model_output:status=${r.status}`);
+ try{return JSON.parse(r.output_text)}catch{throw new Error(`invalid_json_output:${r.output_text.slice(0,300)}`)}
+}
+
+export async function POST(req:Request){
+ try{
+  const{world,action}=await req.json();
+  if(!world||!action)return NextResponse.json({error:'world_and_action_required'},{status:400});
+  const target=action.characterId?world.characters?.find((c:any)=>c.id===action.characterId):null;
+  const conversationHistory=(world.events||[]).filter((e:any)=>{
+   if(action.channel==='chat')return e.channel==='chat'&&(e.characterId===action.characterId||e.recipientCharacterId===action.characterId);
+   if(action.channel==='mail')return e.channel==='mail'&&(e.characterId===action.characterId||e.recipientCharacterId===action.characterId);
+   return false
+  }).slice(-20).map((e:any)=>({sender:e.sender,body:e.body,subject:e.subject,at:e.at,direction:e.sender==='Você'?'participant_to_character':'character_to_participant'}));
+  const context={
+   world:{...world,telemetry:undefined,events:undefined},
+   targetCharacter:target||undefined,
+   conversationHistory,
+   latestParticipantAction:action,
+   recentTelemetry:[...(world.telemetry||[]).slice(-8),action],
+   runtimeDirective:'This is a live professional simulation. Continue the conversation as the target character. Reason from the scenario, the character knowledge perimeter and conversation history. Answer the exact latest question, add useful detail when supported, distinguish what the character knows from what they infer, and never repeat the previous answer merely because the topic is similar. If a detail is unknown, identify the realistic source/person/artifact that would contain it. Generate the character response now.'
+  };
+  let director;
+  try{director=await jsonResponse(DIRECTOR_PROMPT,context)}catch(error){
+   const message=error instanceof Error?error.message:String(error);
+   console.error('director_generation_error',{model,message});
+   return NextResponse.json({error:'director_generation_failed',detail:message,model},{status:502});
+  }
+  jsonResponse(OBSERVER_PROMPT,{seat:world.seat,temperature:world.temperature,targetCharacter:target,recentTelemetry:[...(world.telemetry||[]).slice(-12),action]}).catch(error=>console.error('observer_generation_error',error));
+  return NextResponse.json({director,engine:'llm',model});
+ }catch(error){
+  const message=error instanceof Error?error.message:String(error);
+  console.error('turn_error',message);
+  return NextResponse.json({error:'turn_failed',detail:message},{status:500})
+ }
+}
