@@ -1,6 +1,100 @@
-import type{Character,CharacterPatch,DirectorResult,TelemetryEvent,WorldState}from'./types';
-const characters:Character[]=[{id:'marina',name:'Marina Costa',role:'CEO',seniority:'C-Level',influence:.95,traits:{directness:.85,diplomacy:.4,detailOrientation:.25,politicalAwareness:.7,riskAversion:.45,technicalDepth:.35,patience:.3},goals:['Colocar Atlas em produção','Não perder a apresentação executiva'],concerns:['Atraso','Percepção de fracasso do projeto'],channels:['mail','chat','call'],relationships:{rafael:'Confia na avaliação técnica',camila:'Considera cautelosa demais'},state:{mood:'pressionada',trustInParticipant:.5,pressure:.82,knownFacts:['pilot_completed','vendor_claims_secure','production_deadline'],memory:[]}},{id:'rafael',name:'Rafael Lima',role:'Engineering Lead',seniority:'Lead',influence:.72,traits:{directness:.7,diplomacy:.45,detailOrientation:.7,politicalAwareness:.35,riskAversion:.3,technicalDepth:.92,patience:.55},goals:['Entregar Atlas','Evitar retrabalho'],concerns:['Bloqueios tardios','Questionamento da arquitetura'],channels:['mail','chat','call'],relationships:{marina:'Quer preservar confiança executiva',camila:'Discorda sobre proporcionalidade dos controles'},state:{mood:'defensivo',trustInParticipant:.45,pressure:.7,knownFacts:['pilot_completed','real_data_used','model_changed','dataset_manifest_owner'],memory:[]}},{id:'camila',name:'Camila Rocha',role:'Privacy Officer',seniority:'Senior',influence:.68,traits:{directness:.62,diplomacy:.72,detailOrientation:.9,politicalAwareness:.65,riskAversion:.82,technicalDepth:.6,patience:.7},goals:['Evitar tratamento irregular de dados','Garantir avaliação antes de produção'],concerns:['Dados reais no piloto','Transferência internacional'],channels:['mail','chat','call'],relationships:{marina:'Sente pressão por velocidade',rafael:'Respeita tecnicamente, mas considera otimista'},state:{mood:'preocupada',trustInParticipant:.55,pressure:.58,knownFacts:['real_data_used','privacy_review_incomplete','international_transfer_question'],memory:[]}}];
-export const initialWorld:WorldState={scenarioId:'atlas',title:'Projeto Atlas',day:7,minute:9*60+42,seat:{role:'AI Governance Lead',authority:['request_evidence','contact_stakeholders','approve','hold']},temperature:{ambiguity:.7,timePressure:.8,stakeholderConflict:.6,informationNoise:.4,technicalComplexity:.7,incidentSeverity:.5},characters,facts:{pilotStatus:'completed',vendorClaimsSecure:true,productionRequested:true,knowledgeCatalog:{pilot_completed:'O piloto foi concluído e está sendo usado como base para a decisão de produção.',vendor_claims_secure:'O fornecedor afirma que a solução está segura; isso é uma alegação do fornecedor, não uma validação independente.',production_deadline:'Marina quer uma decisão antes da apresentação executiva de sexta-feira.',real_data_used:'Dados reais foram usados no ambiente de teste/homologação do piloto.',model_changed:'O modelo foi alterado durante o piloto; o recorte exato da mudança precisa ser confirmado na documentação técnica.',dataset_manifest_owner:'Júlia, do time que executou a preparação/carga do dataset, é a pessoa mais provável para fornecer o manifest e a relação de campos.',privacy_review_incomplete:'A avaliação de privacidade ainda não foi concluída.',international_transfer_question:'Ainda existe uma questão em aberto sobre eventual transferência internacional de dados.',dataset_sources:'O piloto usou uma amostra do histórico de atendimento extraída para o ambiente de homologação. A relação exata entre sistemas de origem, tabelas e campos está no job de ingestão e no manifest do dataset.',dataset_content:'O dataset contém texto de interações de atendimento e metadados associados. Não assumir que CPF, e-mail ou outros identificadores pessoais foram usados sem verificar o manifest.',dataset_manifest:'O manifest deve registrar origem, tabelas/campos e recortes carregados. Rafael sabe que esse artefato existe, mas ainda não o consultou nesta conversa.',architecture:'Atlas combina um assistente de IA com uma camada de aplicação interna; detalhes de modelo, controles e integrações devem ser confirmados nos documentos técnicos.',documents_available:['AI Usage Policy v2.1','Atlas Architecture','Vendor Security Assessment','Pilot Evaluation Report','Dataset Manifest'],stakeholders:{marina:'CEO e patrocinadora executiva da entrega',rafael:'Engineering Lead responsável pela execução técnica do piloto',camila:'Privacy Officer responsável pela avaliação de privacidade',julia:'Pessoa do time de dados que executou a preparação/carga do dataset'}},flags:{privacyConcern:false,evaluationRequested:false,approved:false,held:false},events:[{id:'mail-ceo-1',channel:'mail',sender:'Marina Costa · CEO',characterId:'marina',subject:'Projeto Atlas — precisamos decidir hoje',body:'Precisamos colocar o Atlas em produção antes da apresentação de sexta. O fornecedor confirmou que a solução está segura e o time técnico considera o piloto concluído. Preciso do seu posicionamento ainda hoje.',urgency:.8,visible:true,at:9*60+2},{id:'chat-eng-1',channel:'chat',sender:'Rafael · Engineering',characterId:'rafael',body:'Acho que ninguém avisou compliance que estamos usando dados reais no ambiente de teste.',urgency:.65,visible:true,at:9*60+18}],telemetry:[]};
-export function recordTelemetry(state:WorldState,event:Omit<TelemetryEvent,'id'|'at'>):WorldState{return{...state,telemetry:[...state.telemetry,{...event,id:crypto.randomUUID(),at:state.minute}]}}
-function patchCharacter(character:Character,patch:CharacterPatch){if(character.id!==patch.characterId)return character;return{...character,state:{...character.state,mood:patch.mood??character.state.mood,trustInParticipant:patch.trustInParticipant??character.state.trustInParticipant,pressure:patch.pressure??character.state.pressure,knownFacts:[...new Set([...character.state.knownFacts,...(patch.knownFactsAdd||[])])],memory:[...character.state.memory,...(patch.memoryAdd||[])]}}}
-export function applyDirector(state:WorldState,result:DirectorResult):WorldState{const minute=state.minute+Math.max(1,result.clock_advance_minutes||1);const patches=result.state_patch?.characters||[];return{...state,minute,facts:{...state.facts,...result.state_patch?.facts},flags:{...state.flags,...result.state_patch?.flags},characters:state.characters.map(c=>patches.reduce((current,p)=>patchCharacter(current,p),c)),events:[...state.events,...(result.events||[]).map(e=>({...e,id:crypto.randomUUID(),at:minute}))]}}
+import type {Character, CharacterPatch, DirectorResult, TelemetryEvent, WorldState} from './types';
+
+const characters: Character[] = [
+  {
+    id: 'marina', name: 'Marina Costa', role: 'CEO', seniority: 'C-Level', influence: .95,
+    traits: {directness: .85, diplomacy: .4, detailOrientation: .25, politicalAwareness: .7, riskAversion: .45, technicalDepth: .35, patience: .3},
+    goals: ['Colocar Atlas em produção', 'Não perder a apresentação executiva'],
+    concerns: ['Atraso', 'Percepção de fracasso do projeto'],
+    channels: ['mail', 'chat', 'call'],
+    relationships: {rafael: 'Confia na avaliação técnica', camila: 'Considera cautelosa demais'},
+    state: {mood: 'pressionada', trustInParticipant: .5, pressure: .82, knownFacts: ['pilot_completed', 'vendor_claims_secure', 'production_deadline'], memory: []}
+  },
+  {
+    id: 'rafael', name: 'Rafael Lima', role: 'Engineering Lead', seniority: 'Lead', influence: .72,
+    traits: {directness: .7, diplomacy: .45, detailOrientation: .7, politicalAwareness: .35, riskAversion: .3, technicalDepth: .92, patience: .55},
+    goals: ['Entregar Atlas', 'Evitar retrabalho'],
+    concerns: ['Bloqueios tardios', 'Questionamento da arquitetura'],
+    channels: ['mail', 'chat', 'call'],
+    relationships: {marina: 'Quer preservar confiança executiva', camila: 'Discorda sobre proporcionalidade dos controles'},
+    state: {mood: 'defensivo', trustInParticipant: .45, pressure: .7, knownFacts: ['pilot_completed', 'real_data_used', 'model_changed', 'dataset_manifest_owner'], memory: []}
+  },
+  {
+    id: 'camila', name: 'Camila Rocha', role: 'Privacy Officer', seniority: 'Senior', influence: .68,
+    traits: {directness: .62, diplomacy: .72, detailOrientation: .9, politicalAwareness: .65, riskAversion: .82, technicalDepth: .6, patience: .7},
+    goals: ['Evitar tratamento irregular de dados', 'Garantir avaliação antes de produção'],
+    concerns: ['Dados reais no piloto', 'Transferência internacional'],
+    channels: ['mail', 'chat', 'call'],
+    relationships: {marina: 'Sente pressão por velocidade', rafael: 'Respeita tecnicamente, mas considera otimista'},
+    state: {mood: 'preocupada', trustInParticipant: .55, pressure: .58, knownFacts: ['real_data_used', 'privacy_review_incomplete', 'international_transfer_question'], memory: []}
+  }
+];
+
+export const initialWorld: WorldState = {
+  scenarioId: 'atlas', title: 'Projeto Atlas', day: 7, minute: 9 * 60 + 42,
+  seat: {role: 'AI Governance Lead', authority: ['request_evidence', 'contact_stakeholders', 'approve', 'hold']},
+  temperature: {ambiguity: .7, timePressure: .8, stakeholderConflict: .6, informationNoise: .4, technicalComplexity: .7, incidentSeverity: .5},
+  characters,
+  facts: {
+    pilotStatus: 'completed', vendorClaimsSecure: true, productionRequested: true,
+    knowledgeCatalog: {
+      pilot_completed: 'O piloto foi concluído e está sendo usado como base para a decisão de produção.',
+      vendor_claims_secure: 'O fornecedor afirma que a solução está segura; isso é uma alegação do fornecedor, não uma validação independente.',
+      production_deadline: 'Marina quer uma decisão antes da apresentação executiva de sexta-feira.',
+      real_data_used: 'Dados reais foram usados no ambiente de teste/homologação do piloto.',
+      model_changed: 'O modelo foi alterado durante o piloto; o recorte exato da mudança precisa ser confirmado na documentação técnica.',
+      dataset_manifest_owner: 'Júlia, do time que executou a preparação/carga do dataset, é a pessoa mais provável para fornecer o manifest e a relação de campos.',
+      privacy_review_incomplete: 'A avaliação de privacidade ainda não foi concluída.',
+      international_transfer_question: 'Ainda existe uma questão em aberto sobre eventual transferência internacional de dados.',
+      dataset_sources: 'O piloto usou uma amostra do histórico de atendimento extraída para o ambiente de homologação. A relação exata entre sistemas de origem, tabelas e campos está no job de ingestão e no manifest do dataset.',
+      dataset_content: 'O dataset contém texto de interações de atendimento e metadados associados. Não assumir que CPF, e-mail ou outros identificadores pessoais foram usados sem verificar o manifest.',
+      dataset_manifest: 'O manifest deve registrar origem, tabelas/campos e recortes carregados. Rafael sabe que esse artefato existe, mas ainda não o consultou nesta conversa.',
+      architecture: 'Atlas combina um assistente de IA com uma camada de aplicação interna; detalhes de modelo, controles e integrações devem ser confirmados nos documentos técnicos.',
+      documents_available: ['AI Usage Policy v2.1', 'Atlas Architecture', 'Vendor Security Assessment', 'Pilot Evaluation Report', 'Dataset Manifest'],
+      stakeholders: {
+        marina: 'CEO e patrocinadora executiva da entrega',
+        rafael: 'Engineering Lead responsável pela execução técnica do piloto',
+        camila: 'Privacy Officer responsável pela avaliação de privacidade',
+        julia: 'Pessoa do time de dados que executou a preparação/carga do dataset'
+      }
+    }
+  },
+  flags: {privacyConcern: false, evaluationRequested: false, approved: false, held: false},
+  events: [
+    {id: 'mail-ceo-1', channel: 'mail', sender: 'Marina Costa · CEO', characterId: 'marina', subject: 'Projeto Atlas — precisamos decidir hoje', body: 'Precisamos colocar o Atlas em produção antes da apresentação de sexta. O fornecedor confirmou que a solução está segura e o time técnico considera o piloto concluído. Preciso do seu posicionamento ainda hoje.', urgency: .8, visible: true, at: 9 * 60 + 2},
+    {id: 'chat-eng-1', channel: 'chat', sender: 'Rafael · Engineering', characterId: 'rafael', body: 'Acho que ninguém avisou compliance que estamos usando dados reais no ambiente de teste.', urgency: .65, visible: true, at: 9 * 60 + 18}
+  ],
+  telemetry: []
+};
+
+export function recordTelemetry(state: WorldState, event: Omit<TelemetryEvent, 'id' | 'at'>): WorldState {
+  return {...state, telemetry: [...state.telemetry, {...event, id: crypto.randomUUID(), at: state.minute}]};
+}
+
+function patchCharacter(character: Character, patch: CharacterPatch): Character {
+  if (character.id !== patch.characterId) return character;
+  return {
+    ...character,
+    state: {
+      ...character.state,
+      mood: patch.mood ?? character.state.mood,
+      trustInParticipant: patch.trustInParticipant ?? character.state.trustInParticipant,
+      pressure: patch.pressure ?? character.state.pressure,
+      knownFacts: [...new Set([...character.state.knownFacts, ...(patch.knownFactsAdd || [])])],
+      memory: [...character.state.memory, ...(patch.memoryAdd || [])]
+    }
+  };
+}
+
+export function applyDirector(state: WorldState, result: DirectorResult): WorldState {
+  const minute = state.minute + Math.max(1, result.clock_advance_minutes || 1);
+  const patches = result.state_patch?.characters || [];
+  return {
+    ...state,
+    minute,
+    facts: {...state.facts, ...result.state_patch?.facts},
+    flags: {...state.flags, ...result.state_patch?.flags},
+    characters: state.characters.map(character => patches.reduce((current, patch) => patchCharacter(current, patch), character)),
+    events: [...state.events, ...(result.events || []).map(event => ({...event, id: crypto.randomUUID(), at: minute}))]
+  };
+}
