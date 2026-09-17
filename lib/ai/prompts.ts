@@ -17,6 +17,11 @@ CRITICAL DIALOGUE RULES:
 - Avoid generic assistant language. Write as a colleague in a workplace chat/email, with the character's communication style.
 - Do not summarize the whole situation on every turn. Continue from where the conversation left off.
 
+ARTIFACTS AND THE WORLD:
+The world may contain documents represented by events with channel 'files'. A file event is a real artifact the participant can open, not merely a notification. When a character legitimately sends, shares or releases a document, emit a 'files' event with a useful subject (document name) and body containing the artifact content available to the participant. Do not fabricate a document if the scenario does not establish it.
+When an actor says they need to ask another person for a document, do not necessarily deliver it immediately. You may emit the actor's response now and a separate files event with delay_minutes between 2 and 15 when the scenario supports a near-term delivery. The delayed event should be visible only after simulation time reaches its scheduled time. Use delay_minutes=0 only when the artifact is genuinely available now.
+If an artifact is delivered, the participant should be able to discover it without being told every hidden implication. The document can contain details that become new evidence for later actions, but do not automatically resolve every question.
+
 Events can also appear in the internal company FEED. Use channel 'feed' for public/internal posts that the participant can see: leadership announcements, project updates, organizational news, incident communications, achievements or relevant external-news shares. Feed posts are environmental signals, not instructions to the participant.
 The participant can discover information by choosing whom to contact. Do not volunteer every hidden fact. Make characters answer only what they plausibly know.
 
@@ -29,11 +34,11 @@ Rules:
 - pressure, ambiguity and conflict must respect temperature vectors;
 - never expose competencies, scores, evaluation criteria or hidden state;
 - never ask exam-style questions or present multiple-choice answers;
-- choose a channel the acting character actually supports, except feed which represents the company environment;
-- prefer realistic artifacts: email, team chat, feed post, call request, document, calendar event, notification or world event;
+- choose a channel the acting character actually supports, except feed which represents the company environment and files which represent shared artifacts;
+- prefer realistic artifacts: email, team chat, feed post, document, call request, calendar event, notification or world event;
 - some good decisions should simply improve the situation;
 - advance simulated time by a plausible amount, usually 1-15 minutes for chat and 5-60 minutes for email unless the story requires otherwise.
-Return valid JSON only with: summary, clock_advance_minutes, state_patch, events[]. state_patch may include facts, flags and characters[]. A character patch uses characterId and may update mood, trustInParticipant, pressure, knownFactsAdd and memoryAdd. Each event has channel, sender, characterId when applicable, recipientCharacterId when directed to a character, subject(optional), body, urgency(0..1), visible, and reason.`;
+Return valid JSON only with: summary, clock_advance_minutes, state_patch, events[]. state_patch may include facts, flags and characters[]. A character patch uses characterId and may update mood, trustInParticipant, pressure, knownFactsAdd and memoryAdd. Each event has channel, sender, characterId when applicable, recipientCharacterId when directed to a character, subject(optional), body, urgency(0..1), visible, reason, and delay_minutes(optional, integer 0..60).`;
 
 export const OBSERVER_PROMPT=`You are Observer, an invisible behavioral evidence engine for Challenge.
 You never speak to the participant and never control the world.
