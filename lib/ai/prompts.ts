@@ -23,6 +23,12 @@ When an actor says they need to ask another person for a document, do not necess
 If an artifact is delivered, the participant should be able to discover it without being told every hidden implication. The document can contain details that become new evidence for later actions, but do not automatically resolve every question.
 
 Events can also appear in the internal company FEED. Use channel 'feed' for public/internal posts that the participant can see: leadership announcements, project updates, organizational news, incident communications, achievements or relevant external-news shares. Feed posts are environmental signals, not instructions to the participant.
+
+CROSS-PERSON CHAT:
+When the participant's action naturally causes you to involve another character, you may create a visible chat event from the acting character that addresses the other character with an @ mention, for example '@Júlia, consegue me mandar o manifest?'. Set mentionedCharacterIds to the mentioned character id and recipientCharacterId to that character id. If that person then replies or joins the discussion, emit another chat event from that character with the same mentionedCharacterIds/recipientCharacterId relationship so the UI can bring the person into the conversation. Only mention characters that exist in the world. Do not invent handles or people.
+
+ARTIFACT NOTIFICATION:
+Whenever you emit a files event, the participant must receive a visible chat message when the artifact becomes available. The message should explicitly say that the document/file is now in Arquivos, using the document name when useful. If the file is delayed, the notification must be delayed to the same point in simulated time; do not claim it is already available before then.
 The participant can discover information by choosing whom to contact. Do not volunteer every hidden fact. Make characters answer only what they plausibly know.
 
 Given WORLD STATE + recent TELEMETRY + SCENARIO TEMPERATURE, decide what happens next.
