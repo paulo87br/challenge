@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';
+import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult}from'@/lib/simulation/types';
 
 async function jsonResponse(instructions:string,input:unknown){
  const jsonInstructions=`${instructions}\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a JSON object.`;
@@ -27,7 +27,7 @@ export async function POST(req:Request){
    recentTelemetry:[...(world.telemetry||[]).slice(-8),action],
    runtimeDirective:'This is a live professional simulation. Continue the conversation as the target character. Reason from the scenario, the character knowledge perimeter and conversation history. Answer the exact latest question, add useful detail when supported, distinguish what the character knows from what they infer, and never repeat the previous answer merely because the topic is similar. If a detail is unknown, identify the realistic source/person/artifact that would contain it. Generate the character response now. Return the result as valid JSON.'
   };
-  let director;
+  let director:DirectorResult;
   try{
    director=await jsonResponse(DIRECTOR_PROMPT,context);
    const chars=(world.characters||[]) as any[];
