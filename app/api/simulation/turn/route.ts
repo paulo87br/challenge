@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog}from'@/lib/simulation/types';
+import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic}from'@/lib/simulation/types';
 
 async function jsonResponse(instructions:string,input:unknown){
  const jsonInstructions=`${instructions}\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a JSON object.`;
@@ -14,6 +14,33 @@ export async function POST(req:Request){
  const startedAt=Date.now();
  const logs:EngineLog[]=[];
  const log=(stage: string,status:EngineLog['status'],message:string,meta?:Record<string,unknown>)=>logs.push({id:crypto.randomUUID(),at:Date.now(),stage,status,message,meta});
+ const buildDiagnostic=(director:DirectorResult,action:any,chars:any[],elapsed:number):TurnDiagnostic=>{
+  const events=director.events||[]; const chats=events.filter((e:any)=>e.channel==='chat'); const files=events.filter((e:any)=>e.channel==='files');
+  const mentions=[...new Set(chats.flatMap((e:any)=>e.mentionedCharacterIds||[]))];
+  const cascaded=mentions.filter(id=>events.some((e:any)=>e.channel==='chat'&&e.characterId===id));
+  const fallback=logs.some(l=>l.stage==='artifact'&&l.status==='warn'&&/fallback/i.test(l.message));
+  const hasArtifact=files.length>0;
+  const artifactNotice=chats.some((e:any)=>e.subject==='Arquivo disponível'||/já está disponível em Arquivos/i.test(String(e.body||'')));
+  const checks:Array<TurnDiagnostic['checks'][number]>=[];
+  checks.push({id:'director',status:'ok',label:'Director',detail:`${events.length} evento(s) gerado(s); avanço de ${Number(director.clock_advance_minutes)||0} min.`});
+  checks.push({id:'mentions',status:mentions.length===0?'attention':'ok',label:'Menções',detail:mentions.length?`${mentions.length} pessoa(s) envolvida(s): ${mentions.map(id=>chars.find(c=>c.id===id)?.name||id).join(', ')}.`:'Nenhuma menção identificada no turno.'});
+  checks.push({id:'cascade',status:mentions.length===0?'attention':cascaded.length===mentions.length?'ok':'error',label:'Cascata',detail:mentions.length===0?'Não houve handoff entre personagens.':`${cascaded.length}/${mentions.length} pessoa(s) mencionada(s) responderam.`});
+  checks.push({id:'artifact',status:hasArtifact?'ok':fallback?'attention':'attention',label:'Artefatos',detail:hasArtifact?`${files.length} arquivo(s) gerado(s): ${files.map((e:any)=>e.subject||'Documento').join(', ')}.`:'Nenhum evento de arquivo foi gerado neste turno.'});
+  checks.push({id:'notification',status:hasArtifact?(artifactNotice?'ok':'error'):'attention',label:'Notificação',detail:hasArtifact?(artifactNotice?'Notificação de Arquivos criada.':'Arquivo gerado sem notificação correspondente.'):'Sem arquivo para notificar.'});
+  const causalChain:TurnDiagnostic['causalChain']=[
+   {stage:'ação',status:'ok',detail:`${action.channel}/${action.action}${action.characterId?` → ${chars.find(c=>c.id===action.characterId)?.name||action.characterId}`:''}`},
+   {stage:'Director',status:'ok',detail:`${events.length} evento(s)`},
+   {stage:'cascata',status:mentions.length===0?'attention':cascaded.length===mentions.length?'ok':'error',detail:mentions.length?`${cascaded.length}/${mentions.length} handoff(s) concluído(s)`:'nenhum handoff'},
+   {stage:'artefato',status:hasArtifact?'ok':'attention',detail:hasArtifact?`${files.length} arquivo(s)`:fallback?'fallback não aplicado neste diagnóstico':'nenhum arquivo'},
+   {stage:'Observer',status:'ok',detail:'disparado em background'}
+  ];
+  let severity:TurnDiagnostic['severity']='ok'; let headline='Turno executado corretamente';
+  if(cascaded.length<mentions.length|| (hasArtifact&&!artifactNotice)){severity='error';headline='Turno executado com falha de cadeia';}
+  else if(!hasArtifact&&fallback){severity='attention';headline='Turno executado com recuperação determinística';}
+  else if(mentions.length===0&&!hasArtifact){severity='attention';headline='Turno sem efeitos encadeados';}
+  const summary=severity==='ok'?`Fluxo completo: ${events.length} evento(s), ${mentions.length} menção(ões), ${files.length} artefato(s).`:`${headline}. ${checks.filter(c=>c.status!=='ok').map(c=>c.detail).join(' ')}`;
+  return{severity,headline,summary,checks,causalChain,requestId,durationMs:elapsed};
+ };
  try{
   log('request','info','Turn received',{requestId});
   const{world,action}=await req.json();
@@ -138,8 +165,11 @@ export async function POST(req:Request){
   }
   log('observer','info','Starting Observer asynchronously');
   jsonResponse(OBSERVER_PROMPT,{seat:world.seat,temperature:world.temperature,targetCharacter:target,recentTelemetry:[...(world.telemetry||[]).slice(-12),action]}).catch(error=>console.error('observer_generation_error',error));
-  log('request','ok','Turn completed',{requestId,elapsedMs:Date.now()-startedAt,totalEvents:director.events?.length||0});
-  return NextResponse.json({director,engine:'llm',model,requestId,logs});
+  const durationMs=Date.now()-startedAt;
+  const diagnostic=buildDiagnostic(director,action,world.characters||[],durationMs);
+  log('diagnostic',diagnostic.severity==='error'?'error':diagnostic.severity==='attention'?'warn':'ok','Turn diagnosis',{severity:diagnostic.severity,headline:diagnostic.headline,durationMs});
+  log('request','ok','Turn completed',{requestId,elapsedMs:durationMs,totalEvents:director.events?.length||0});
+  return NextResponse.json({director,engine:'llm',model,requestId,logs,diagnostic});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
   console.error('turn_error',message);
