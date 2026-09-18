@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult}from'@/lib/simulation/types';
+import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent}from'@/lib/simulation/types';
 
 async function jsonResponse(instructions:string,input:unknown){
  const jsonInstructions=`${instructions}\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a JSON object.`;
@@ -49,13 +49,13 @@ export async function POST(req:Request){
     const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.';
     director.events=[...director.events,{channel:'files',sender:'Rafael Lima · Engineering',characterId:action.characterId||'rafael',subject:'Dataset Manifest',body,urgency:.7,visible:true,reason:'Artefato liberado após a solicitação do participante.',delay_minutes:Math.max(2,Math.min(10,Number(director.clock_advance_minutes)||5))}];
    }
-   const artifactNotices=(director.events||[]).filter((e:any)=>e.channel==='files').flatMap((file:any)=>{
+   const artifactNotices:Array<Omit<WorldEvent,'id'|'at'>>=(director.events||[]).filter((e:any)=>e.channel==='files').flatMap((file:any)=>{
     const name=String(file.subject||'Documento');
     const alreadyNotifies=(director.events||[]).some((e:any)=>e.channel==='chat'&&/arquivos|files/i.test(String(e.body||''))&&String(e.body||'').toLowerCase().includes(name.toLowerCase()));
     if(alreadyNotifies)return [];
     const senderCharacter=chars.find((c:any)=>c.id===file.characterId);
     const sender=senderCharacter?String(senderCharacter.name):String(file.sender||'Equipe');
-    return[{channel:'chat',sender,characterId:file.characterId,recipientCharacterId:action.characterId,mentionedCharacterIds:[],subject:'Arquivo disponível',body:`O documento “${name}” já está disponível em Arquivos.`,urgency:.55,visible:true,reason:'Notificação de novo artefato.',delay_minutes:Number(file.delay_minutes)||0}];
+    return[{channel:'chat' as const,sender,characterId:file.characterId,recipientCharacterId:action.characterId,mentionedCharacterIds:[],subject:'Arquivo disponível',body:`O documento “${name}” já está disponível em Arquivos.`,urgency:.55,visible:true,reason:'Notificação de novo artefato.',delay_minutes:Number(file.delay_minutes)||0}];
    });
    director.events=[...(director.events||[]),...artifactNotices];
   }catch(error){
