@@ -31,7 +31,7 @@ export async function POST(req:Request){
   try{
    director=await jsonResponse(DIRECTOR_PROMPT,context);
    const chars=(world.characters||[]) as any[];
-   const normalizedEvents=(director.events||[]).map((event:any)=>{
+   const normalizeMentions=(events:any[])=>events.map((event:any)=>{
     if(event.channel!=='chat')return event;
     const mentioned=[...(event.mentionedCharacterIds||[])];
     for(const character of chars){
@@ -41,14 +41,71 @@ export async function POST(req:Request){
     const unique=[...new Set(mentioned)].filter(Boolean);
     return{...event,mentionedCharacterIds:unique,recipientCharacterId:event.recipientCharacterId||unique[0]};
    });
-   director.events=normalizedEvents;
-   const requestText=String(action.text||'').toLowerCase();
-   const asksManifest=/manifest|tabelas|campos|dataset/.test(requestText);
+
+   director.events=normalizeMentions(director.events||[]);
+
+   // A mention is an actual handoff between people, not just formatting.
+   // If Rafael pulls Júlia into the thread, give Júlia her own turn immediately.
+   // This keeps the simulation alive while still limiting the cascade to a small,
+   // deterministic number of additional actors per participant action.
+   const initialMentions=[...(director.events||[])]
+    .filter((e:any)=>e.channel==='chat'&&e.mentionedCharacterIds?.length)
+    .flatMap((e:any)=>e.mentionedCharacterIds as string[]);
+   const cascadeIds=[...new Set(initialMentions)].slice(0,3);
+   for(const characterId of cascadeIds){
+    const character=chars.find((c:any)=>c.id===characterId);
+    if(!character)continue;
+    const alreadyReplied=(director.events||[]).some((e:any)=>e.channel==='chat'&&e.characterId===characterId);
+    if(alreadyReplied)continue;
+
+    const cascadeHistory=[
+     ...conversationHistory,
+     ...(director.events||[]).filter((e:any)=>e.channel==='chat').map((e:any)=>({
+      sender:e.sender,body:e.body,subject:e.subject,at:e.at,
+      direction:e.sender==='Você'?'participant_to_character':'character_to_participant'
+     }))
+    ].slice(-24);
+
+    const cascadeContext={
+     world:{...world,telemetry:undefined,events:undefined},
+     targetCharacter:character,
+     conversationHistory:cascadeHistory,
+     latestParticipantAction:action,
+     recentTelemetry:[...(world.telemetry||[]).slice(-8),action],
+     runtimeDirective:'You have just been brought into a live workplace chat by another character mentioning you. Respond as this character now. Read the latest message carefully and answer the concrete request. If the message asks you for a document or evidence you own, say what you can provide and, when appropriate, actually emit the files artifact in your events. Do not narrate the simulation. Return valid JSON.'
+    };
+    const follow=await jsonResponse(DIRECTOR_PROMPT,cascadeContext) as DirectorResult;
+    const followEvents=normalizeMentions(follow.events||[]).map((e:any)=>({...e,delay_minutes:e.delay_minutes??0}));
+    director.events=[...(director.events||[]),...followEvents];
+    if(Number(follow.clock_advance_minutes)>Number(director.clock_advance_minutes))director.clock_advance_minutes=follow.clock_advance_minutes;
+    if(follow.state_patch?.facts)director.state_patch.facts={...(director.state_patch?.facts||{}),...follow.state_patch.facts};
+    if(follow.state_patch?.flags)director.state_patch.flags={...(director.state_patch?.flags||{}),...follow.state_patch.flags};
+    if(follow.state_patch?.characters)director.state_patch.characters=[...(director.state_patch?.characters||[]),...follow.state_patch.characters];
+   }
+
+   // The current Atlas scenario has a known evidence path: Rafael can route
+   // the request to Júlia, who owns the Dataset Manifest. If the chain clearly
+   // asks for that artifact, make the artifact concrete rather than leaving
+   // the participant with a promise that can never resolve.
+   const allText=(director.events||[]).map((e:any)=>String(e.body||'')).join(' ');
+   const asksManifest=/(manifest|tabelas|campos|dataset)/i.test(allText);
    const hasManifest=director.events.some((e:any)=>e.channel==='files'&&/manifest|dataset/i.test(`${e.subject||''} ${e.body||''}`));
    if(asksManifest&&!hasManifest){
     const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.';
-    director.events=[...director.events,{channel:'files',sender:'Rafael Lima · Engineering',characterId:action.characterId||'rafael',subject:'Dataset Manifest',body,urgency:.7,visible:true,reason:'Artefato liberado após a solicitação do participante.',delay_minutes:Math.max(2,Math.min(10,Number(director.clock_advance_minutes)||5))}];
+    const owner=chars.find((c:any)=>c.id==='julia')||chars.find((c:any)=>c.id==='rafael');
+    director.events=[...(director.events||[]),{
+     channel:'files',
+     sender:owner?.name||'Data',
+     characterId:owner?.id||'julia',
+     subject:'Dataset Manifest',
+     body,
+     urgency:.7,
+     visible:true,
+     reason:'Artefato liberado após a solicitação do participante.',
+     delay_minutes:3
+    }];
    }
+
    const artifactNotices:Array<Omit<WorldEvent,'id'|'at'>>=(director.events||[]).filter((e:any)=>e.channel==='files').flatMap((file:any)=>{
     const name=String(file.subject||'Documento');
     const alreadyNotifies=(director.events||[]).some((e:any)=>e.channel==='chat'&&/arquivos|files/i.test(String(e.body||''))&&String(e.body||'').toLowerCase().includes(name.toLowerCase()));
@@ -58,7 +115,7 @@ export async function POST(req:Request){
     return[{channel:'chat' as const,sender,characterId:file.characterId,recipientCharacterId:action.characterId,mentionedCharacterIds:[],subject:'Arquivo disponível',body:`O documento “${name}” já está disponível em Arquivos.`,urgency:.55,visible:true,reason:'Notificação de novo artefato.',delay_minutes:Number(file.delay_minutes)||0}];
    });
    director.events=[...(director.events||[]),...artifactNotices];
-  }catch(error){
+  }  }catch(error){
    const message=error instanceof Error?error.message:String(error);
    console.error('director_generation_error',{model,message});
    return NextResponse.json({error:'director_generation_failed',detail:message,model},{status:502});
