@@ -115,7 +115,7 @@ export async function POST(req:Request){
     return[{channel:'chat' as const,sender,characterId:file.characterId,recipientCharacterId:action.characterId,mentionedCharacterIds:[],subject:'Arquivo disponível',body:`O documento “${name}” já está disponível em Arquivos.`,urgency:.55,visible:true,reason:'Notificação de novo artefato.',delay_minutes:Number(file.delay_minutes)||0}];
    });
    director.events=[...(director.events||[]),...artifactNotices];
-  }  }catch(error){
+  }catch(error){
    const message=error instanceof Error?error.message:String(error);
    console.error('director_generation_error',{model,message});
    return NextResponse.json({error:'director_generation_failed',detail:message,model},{status:502});
