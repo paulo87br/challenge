@@ -36,7 +36,7 @@ export async function POST(req:Request){
     const mentioned=[...(event.mentionedCharacterIds||[])];
     for(const character of chars){
      const first=String(character.name||'').split(' ')[0];
-     if(first&&new RegExp('@'+first.replace(/[.*+?^$\\{}()|[\\]\\\\]/g,'\\\\  try{director=await jsonResponse(DIRECTOR_PROMPT,context); const requestText=String(action.text||'').toLowerCase(); const asksManifest=/manifest|tabelas|campos|dataset/.test(requestText); const hasManifest=(director.events||[]).some((e:any)=>e.channel==='files'&&/manifest|dataset/i.test(`${e.subject||''} ${e.body||''}`)); if(asksManifest&&!hasManifest){const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.'; director.events=[...(director.events||[]),{channel:'files',sender:'Rafael Lima · Engineering',characterId:action.characterId||'rafael',subject:'Dataset Manifest',body,urgency:.7,visible:true,reason:'Artefato liberado após a solicitação do participante.',delay_minutes:Math.max(2,Math.min(10,Number(director.clock_advance_minutes)||5))}]}}catch(error){'),'i').test(String(event.body||'')))mentioned.push(character.id);
+     if(first&&String(event.body||'').toLocaleLowerCase().includes('@'+first.toLocaleLowerCase()))mentioned.push(character.id);
     }
     const unique=[...new Set(mentioned)].filter(Boolean);
     return{...event,mentionedCharacterIds:unique,recipientCharacterId:event.recipientCharacterId||unique[0]};
