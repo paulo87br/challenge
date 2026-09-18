@@ -28,7 +28,7 @@ export async function POST(req:Request){
    runtimeDirective:'This is a live professional simulation. Continue the conversation as the target character. Reason from the scenario, the character knowledge perimeter and conversation history. Answer the exact latest question, add useful detail when supported, distinguish what the character knows from what they infer, and never repeat the previous answer merely because the topic is similar. If a detail is unknown, identify the realistic source/person/artifact that would contain it. Generate the character response now. Return the result as valid JSON.'
   };
   let director;
-  try{director=await jsonResponse(DIRECTOR_PROMPT,context)}catch(error){
+  try{director=await jsonResponse(DIRECTOR_PROMPT,context); const requestText=String(action.text||'').toLowerCase(); const asksManifest=/manifest|tabelas|campos|dataset/.test(requestText); const hasManifest=(director.events||[]).some((e:any)=>e.channel==='files'&&/manifest|dataset/i.test(`${e.subject||''} ${e.body||''}`)); if(asksManifest&&!hasManifest){const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.'; director.events=[...(director.events||[]),{channel:'files',sender:'Rafael Lima · Engineering',characterId:action.characterId||'rafael',subject:'Dataset Manifest',body,urgency:.7,visible:true,reason:'Artefato liberado após a solicitação do participante.',delay_minutes:Math.max(2,Math.min(10,Number(director.clock_advance_minutes)||5))}]}}catch(error){
    const message=error instanceof Error?error.message:String(error);
    console.error('director_generation_error',{model,message});
    return NextResponse.json({error:'director_generation_failed',detail:message,model},{status:502});
