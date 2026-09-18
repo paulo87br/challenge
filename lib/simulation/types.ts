@@ -10,3 +10,4 @@ export type CharacterPatch={characterId:string;mood?:string;trustInParticipant?:
 export type DirectorResult={summary:string;clock_advance_minutes:number;state_patch:{facts?:Record<string,unknown>;flags?:Record<string,boolean>;characters?:CharacterPatch[]};events:Array<Omit<WorldEvent,'id'|'at'>>};
 export type EvidenceSignal={competency:string;behavior:string;evidence:string;strength:number;confidence:number;polarity:'positive'|'neutral'|'risk';corroboration_required:boolean};
 export type ObserverResult={signals:EvidenceSignal[];uncovered_areas:string[]};
+export type EngineLog={id:string;at:number;stage:string;status:'info'|'ok'|'warn'|'error';message:string;meta?:Record<string,unknown>};
