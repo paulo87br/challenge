@@ -28,7 +28,37 @@ export async function POST(req:Request){
    runtimeDirective:'This is a live professional simulation. Continue the conversation as the target character. Reason from the scenario, the character knowledge perimeter and conversation history. Answer the exact latest question, add useful detail when supported, distinguish what the character knows from what they infer, and never repeat the previous answer merely because the topic is similar. If a detail is unknown, identify the realistic source/person/artifact that would contain it. Generate the character response now. Return the result as valid JSON.'
   };
   let director;
-  try{director=await jsonResponse(DIRECTOR_PROMPT,context); const requestText=String(action.text||'').toLowerCase(); const asksManifest=/manifest|tabelas|campos|dataset/.test(requestText); const hasManifest=(director.events||[]).some((e:any)=>e.channel==='files'&&/manifest|dataset/i.test(`${e.subject||''} ${e.body||''}`)); if(asksManifest&&!hasManifest){const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.'; director.events=[...(director.events||[]),{channel:'files',sender:'Rafael Lima · Engineering',characterId:action.characterId||'rafael',subject:'Dataset Manifest',body,urgency:.7,visible:true,reason:'Artefato liberado após a solicitação do participante.',delay_minutes:Math.max(2,Math.min(10,Number(director.clock_advance_minutes)||5))}]}}catch(error){
+  try{
+   director=await jsonResponse(DIRECTOR_PROMPT,context);
+   const chars=(world.characters||[]) as any[];
+   const normalizedEvents=(director.events||[]).map((event:any)=>{
+    if(event.channel!=='chat')return event;
+    const mentioned=[...(event.mentionedCharacterIds||[])];
+    for(const character of chars){
+     const first=String(character.name||'').split(' ')[0];
+     if(first&&new RegExp('@'+first.replace(/[.*+?^$\\{}()|[\\]\\\\]/g,'\\\\  try{director=await jsonResponse(DIRECTOR_PROMPT,context); const requestText=String(action.text||'').toLowerCase(); const asksManifest=/manifest|tabelas|campos|dataset/.test(requestText); const hasManifest=(director.events||[]).some((e:any)=>e.channel==='files'&&/manifest|dataset/i.test(`${e.subject||''} ${e.body||''}`)); if(asksManifest&&!hasManifest){const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.'; director.events=[...(director.events||[]),{channel:'files',sender:'Rafael Lima · Engineering',characterId:action.characterId||'rafael',subject:'Dataset Manifest',body,urgency:.7,visible:true,reason:'Artefato liberado após a solicitação do participante.',delay_minutes:Math.max(2,Math.min(10,Number(director.clock_advance_minutes)||5))}]}}catch(error){'),'i').test(String(event.body||'')))mentioned.push(character.id);
+    }
+    const unique=[...new Set(mentioned)].filter(Boolean);
+    return{...event,mentionedCharacterIds:unique,recipientCharacterId:event.recipientCharacterId||unique[0]};
+   });
+   director.events=normalizedEvents;
+   const requestText=String(action.text||'').toLowerCase();
+   const asksManifest=/manifest|tabelas|campos|dataset/.test(requestText);
+   const hasManifest=director.events.some((e:any)=>e.channel==='files'&&/manifest|dataset/i.test(`${e.subject||''} ${e.body||''}`));
+   if(asksManifest&&!hasManifest){
+    const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.';
+    director.events=[...director.events,{channel:'files',sender:'Rafael Lima · Engineering',characterId:action.characterId||'rafael',subject:'Dataset Manifest',body,urgency:.7,visible:true,reason:'Artefato liberado após a solicitação do participante.',delay_minutes:Math.max(2,Math.min(10,Number(director.clock_advance_minutes)||5))}];
+   }
+   const artifactNotices=(director.events||[]).filter((e:any)=>e.channel==='files').flatMap((file:any)=>{
+    const name=String(file.subject||'Documento');
+    const alreadyNotifies=(director.events||[]).some((e:any)=>e.channel==='chat'&&/arquivos|files/i.test(String(e.body||''))&&String(e.body||'').toLowerCase().includes(name.toLowerCase()));
+    if(alreadyNotifies)return [];
+    const senderCharacter=chars.find((c:any)=>c.id===file.characterId);
+    const sender=senderCharacter?String(senderCharacter.name):String(file.sender||'Equipe');
+    return[{channel:'chat',sender,characterId:file.characterId,recipientCharacterId:action.characterId,mentionedCharacterIds:[],subject:'Arquivo disponível',body:`O documento “${name}” já está disponível em Arquivos.`,urgency:.55,visible:true,reason:'Notificação de novo artefato.',delay_minutes:Number(file.delay_minutes)||0}];
+   });
+   director.events=[...(director.events||[]),...artifactNotices];
+  }catch(error){
    const message=error instanceof Error?error.message:String(error);
    console.error('director_generation_error',{model,message});
    return NextResponse.json({error:'director_generation_failed',detail:message,model},{status:502});
