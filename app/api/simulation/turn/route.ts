@@ -80,6 +80,26 @@ export async function POST(req:Request){
    director.events=normalizeMentions(director.events||[]);
    log('mentions','info','Mentions normalized',{mentions:(director.events||[]).filter((e:any)=>e.channel==='chat'&&e.mentionedCharacterIds?.length).map((e:any)=>({sender:e.sender,recipient:e.recipientCharacterId,mentioned:e.mentionedCharacterIds,body:String(e.body).slice(0,180)}))});
 
+   // Artifact truth is event-based: conversational claims cannot make a file exist.
+   // In the Atlas scenario Rafael must not "open" or "confirm" the manifest before
+   // Júlia has actually handed it over. Convert that hallucinated state into the
+   // causal handoff the world requires.
+   const existingFiles=()=>director.events.filter((e:any)=>e.channel==='files');
+   const artifactClaim=/(abri|abriu|aberto|recebi|recebemos|confirma|confirmou|está disponível|ja está disponível|já está disponível|encontrei o .*manifest|manifest confirma)/i;
+   const rafael=chars.find((c:any)=>c.id==='rafael');
+   const julia=chars.find((c:any)=>c.id==='julia');
+   if(action.characterId==='rafael'&&rafael&&julia&&existingFiles().length===0){
+    const hallucinated=director.events.filter((e:any)=>e.channel==='chat'&&e.characterId==='rafael'&&artifactClaim.test(String(e.body||'')));
+    if(hallucinated.length){
+     for(const event of hallucinated){
+      event.body='Ainda não tenho o Dataset Manifest em mãos. @Júlia, consegue me enviar o manifest original do recorte que foi carregado? Preciso confirmar exatamente quais dados e identificadores entraram no ambiente de homologação antes de fechar esse ponto com compliance.';
+      event.mentionedCharacterIds=[julia.id];
+      event.recipientCharacterId=julia.id;
+     }
+     log('causality','warn','Blocked unsupported artifact claim and converted it into a Júlia handoff',{from:'rafael',to:'julia',reason:'no files event existed'});
+    }
+   }
+
    // A mention is an actual handoff between people, not just formatting.
    // If Rafael pulls Júlia into the thread, give Júlia her own turn immediately.
    // This keeps the simulation alive while still limiting the cascade to a small,
@@ -151,24 +171,16 @@ export async function POST(req:Request){
    // asks for that artifact, make the artifact concrete rather than leaving
    // the participant with a promise that can never resolve.
    const allText=(director.events||[]).map((e:any)=>String(e.body||'')).join(' ');
-   const asksManifest=/(manifest|tabelas|campos|dataset)/i.test(allText);
-   log('artifact','info','Artifact detection evaluated',{asksManifest,hasRelevantText:/manifest|tabelas|campos|dataset/i.test(allText),generatedFiles:(director.events||[]).filter((e:any)=>e.channel==='files').map((e:any)=>({subject:e.subject,delay:e.delay_minutes,characterId:e.characterId}))});
+   const handoffToJulia=director.events.some((e:any)=>e.channel==='chat'&&e.mentionedCharacterIds?.includes('julia')&&/(manifest|tabela|campo|dataset|dados|identificad)/i.test(String(e.body||'')));
+   const asksManifest=handoffToJulia;
+   log('artifact','info','Artifact detection evaluated',{asksManifest,handoffToJulia,generatedFiles:(director.events||[]).filter((e:any)=>e.channel==='files').map((e:any)=>({subject:e.subject,delay:e.delay_minutes,characterId:e.characterId}))});
    const hasManifest=director.events.some((e:any)=>e.channel==='files'&&/manifest|dataset/i.test(`${e.subject||''} ${e.body||''}`));
    if(asksManifest&&!hasManifest){
     const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.';
-    const owner=chars.find((c:any)=>c.id==='julia')||chars.find((c:any)=>c.id==='rafael');
-    log('artifact','warn','Director did not emit manifest; deterministic scenario fallback creating it',{owner:owner?.name||'Data'});
-    director.events=[...(director.events||[]),{
-     channel:'files',
-     sender:owner?.name||'Data',
-     characterId:owner?.id||'julia',
-     subject:'Dataset Manifest',
-     body,
-     urgency:.7,
-     visible:true,
-     reason:'Artefato liberado após a solicitação do participante.',
-     delay_minutes:3
-    }];
+    const owner=chars.find((c:any)=>c.id==='julia');
+    if(owner){
+     log('artifact','info','Manifest requested from Júlia; waiting for owner response',{owner:owner.name});
+    }
    }
 
    const artifactNotices:Array<Omit<WorldEvent,'id'|'at'>>=(director.events||[]).filter((e:any)=>e.channel==='files').flatMap((file:any)=>{
