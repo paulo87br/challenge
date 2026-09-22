@@ -1,8 +1,8 @@
-import{NextResponse}from'next/server';import{openai,model}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic}from'@/lib/simulation/types';
+import{NextResponse}from'next/server';import{getOpenAI,getModel}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic}from'@/lib/simulation/types';
 
 async function jsonResponse(instructions:string,input:unknown){
  const jsonInstructions=`${instructions}\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a JSON object.`;
- const r=await openai.responses.create({model,instructions:jsonInstructions,input:JSON.stringify(input),text:{format:{type:'json_object'}}});
+ const r=await getOpenAI().responses.create({model:getModel(),instructions:jsonInstructions,input:JSON.stringify(input),text:{format:{type:'json_object'}}});
  if(r.status==='failed')throw new Error(`model_failed:${r.error?.code||'unknown'}:${r.error?.message||'no_message'}`);
  if(r.status==='incomplete')throw new Error(`model_incomplete:${r.incomplete_details?.reason||'unknown'}`);
  if(!r.output_text)throw new Error(`empty_model_output:status=${r.status}`);
@@ -10,6 +10,7 @@ async function jsonResponse(instructions:string,input:unknown){
 }
 
 export async function POST(req:Request){
+ const model=getModel();
  const requestId=crypto.randomUUID();
  const startedAt=Date.now();
  const logs:EngineLog[]=[];
