@@ -7,7 +7,7 @@
 .diagnostic-pill.ok{background:#dff8ea;color:#17643f}
 .diagnostic-pill.attention{background:#fff0b8;color:#795d00}
 .diagnostic-pill.error{background:#ffd9df;color:#9f1d32}
-.diagnostic-checks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:16px 0}
+.diagnostic-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:16px 0}
 .diagnostic-check{display:flex;flex-direction:column;gap:5px;padding:11px;border:1px solid #e7dfef;border-radius:10px;background:#faf8fc;font-size:11px}
 .diagnostic-check b{font-size:10px;text-transform:uppercase;letter-spacing:.06em}
 .diagnostic-check span{color:#625a70;line-height:1.35}
