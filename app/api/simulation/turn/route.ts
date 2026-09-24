@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{getOpenAI,getModel}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';
+import{NextResponse}from'next/server';import{getOpenAI,getModel}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';
 
 async function jsonResponse(instructions:string,input:unknown){
  const jsonInstructions=`${instructions}\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a JSON object.`;
@@ -23,6 +23,13 @@ export async function POST(req:Request){
   const hasArtifact=files.length>0;
   const artifactNotice=chats.some((e:any)=>e.subject==='Arquivo disponível'||/já está disponível em Arquivos/i.test(String(e.body||'')));
   const checks:Array<TurnDiagnostic['checks'][number]>=[];
+  // The failure this catches: the Director answers, the event is stored, and the
+  // participant still sees silence because the reply was invisible, misattributed
+  // or scheduled into the future.
+  const addressed=action.characterId as string|undefined;
+  const addressedName=addressed?(chars.find(c=>c.id===addressed)?.name||addressed):'';
+  const answered=!addressed||events.some((e:any)=>e.channel==='chat'&&e.characterId===addressed&&e.visible!==false&&(Number(e.delay_minutes)||0)===0);
+  checks.push({id:'reply',status:!addressed?'attention':answered?'ok':'error',label:'Resposta',detail:!addressed?'Nenhum personagem foi endereçado.':answered?`${addressedName} respondeu de forma visível.`:`${addressedName} não produziu resposta visível: o participante vê silêncio.`});
   checks.push({id:'director',status:'ok',label:'Director',detail:`${events.length} evento(s) gerado(s); avanço de ${Number(director.clock_advance_minutes)||0} min.`});
   checks.push({id:'mentions',status:mentions.length===0?'attention':'ok',label:'Menções',detail:mentions.length?`${mentions.length} pessoa(s) envolvida(s): ${mentions.map(id=>chars.find(c=>c.id===id)?.name||id).join(', ')}.`:'Nenhuma menção identificada no turno.'});
   checks.push({id:'cascade',status:mentions.length===0?'attention':cascaded.length===mentions.length?'ok':'error',label:'Cascata',detail:mentions.length===0?'Não houve handoff entre personagens.':`${cascaded.length}/${mentions.length} pessoa(s) mencionada(s) responderam.`});
@@ -33,12 +40,14 @@ export async function POST(req:Request){
   const causalChain:TurnDiagnostic['causalChain']=[
    {stage:'ação',status:'ok',detail:`${action.channel}/${action.action}${action.characterId?` → ${chars.find(c=>c.id===action.characterId)?.name||action.characterId}`:''}`},
    {stage:'Director',status:'ok',detail:`${events.length} evento(s)`},
+   {stage:'resposta',status:!addressed?'attention':answered?'ok':'error',detail:!addressed?'sem destinatário':answered?`${addressedName} respondeu`:`${addressedName} em silêncio`},
    {stage:'cascata',status:mentions.length===0?'attention':cascaded.length===mentions.length?'ok':'error',detail:mentions.length?`${cascaded.length}/${mentions.length} handoff(s) concluído(s)`:'nenhum handoff'},
    {stage:'artefato',status:hasArtifact?'ok':'attention',detail:hasArtifact?`${files.length} arquivo(s)`:fallback?'fallback não aplicado neste diagnóstico':'nenhum arquivo'},
    {stage:'Observer',status:observer?(signalCount?'ok':'attention'):'error',detail:observer?`${signalCount} sinal(is) de evidência`:'sem retorno'}
   ];
   let severity:TurnDiagnostic['severity']='ok'; let headline='Turno executado corretamente';
-  if(cascaded.length<mentions.length|| (hasArtifact&&!artifactNotice)){severity='error';headline='Turno executado com falha de cadeia';}
+  if(!answered){severity='error';headline='Personagem endereçado não respondeu de forma visível';}
+  else if(cascaded.length<mentions.length|| (hasArtifact&&!artifactNotice)){severity='error';headline='Turno executado com falha de cadeia';}
   else if(!hasArtifact&&fallback){severity='attention';headline='Turno executado com recuperação determinística';}
   else if(mentions.length===0&&!hasArtifact){severity='attention';headline='Turno sem efeitos encadeados';}
   const summary=severity==='ok'?`Fluxo completo: ${events.length} evento(s), ${mentions.length} menção(ões), ${files.length} artefato(s).`:`${headline}. ${checks.filter(c=>c.status!=='ok').map(c=>c.detail).join(' ')}`;
@@ -67,9 +76,10 @@ export async function POST(req:Request){
   // Starting it here keeps evidence collection off the critical path: it runs
   // while the Director and the mention cascade are still talking to the model.
   log('observer','info','Observer started alongside Director');
+  let observerError='';
   const observerPromise=jsonResponse(OBSERVER_PROMPT,{seat:world.seat,temperature:world.temperature,targetCharacter:target,recentTelemetry:[...(world.telemetry||[]).slice(-12),action]})
    .then(result=>result as ObserverResult)
-   .catch(error=>{console.error('observer_generation_error',error);return null});
+   .catch(error=>{observerError=error instanceof Error?error.message:String(error);console.error('observer_generation_error',observerError);return null});
 
   let director:DirectorResult;
   try{
@@ -77,18 +87,8 @@ export async function POST(req:Request){
    director=await jsonResponse(DIRECTOR_PROMPT,context);
    log('director','ok','Director returned',{summary:director.summary,clockAdvance:director.clock_advance_minutes,eventCount:director.events?.length||0,eventChannels:(director.events||[]).map((e:any)=>e.channel)});
    const chars=(world.characters||[]) as any[];
-   const normalizeMentions=(events:any[])=>events.map((event:any)=>{
-    if(event.channel!=='chat')return event;
-    const mentioned=[...(event.mentionedCharacterIds||[])];
-    for(const character of chars){
-     const first=String(character.name||'').split(' ')[0];
-     if(first&&String(event.body||'').toLocaleLowerCase().includes('@'+first.toLocaleLowerCase()))mentioned.push(character.id);
-    }
-    const unique=[...new Set(mentioned)].filter(Boolean);
-    return{...event,mentionedCharacterIds:unique,recipientCharacterId:event.recipientCharacterId||unique[0]};
-   });
-
-   director.events=normalizeMentions(director.events||[]);
+   director.events=normalizeEvents(director.events||[],chars,action.characterId);
+   log('events','info','Events normalized',{events:(director.events||[]).map((e:any)=>({channel:e.channel,sender:e.sender,characterId:e.characterId,recipientCharacterId:e.recipientCharacterId,visible:e.visible,delay:e.delay_minutes,body:String(e.body||'').slice(0,140)}))});
    log('mentions','info','Mentions normalized',{mentions:(director.events||[]).filter((e:any)=>e.channel==='chat'&&e.mentionedCharacterIds?.length).map((e:any)=>({sender:e.sender,recipient:e.recipientCharacterId,mentioned:e.mentionedCharacterIds,body:String(e.body).slice(0,180)}))});
 
    // Artifact truth is event-based: conversational claims cannot make a file exist.
@@ -145,7 +145,7 @@ export async function POST(req:Request){
     };
     const follow=await jsonResponse(DIRECTOR_PROMPT,cascadeContext) as DirectorResult;
     log('cascade','ok','Mentioned character returned',{characterId,character:character.name,summary:follow.summary,eventCount:follow.events?.length||0,eventChannels:(follow.events||[]).map((e:any)=>e.channel)});
-    let followEvents=normalizeMentions(follow.events||[]).map((e:any)=>({...e,delay_minutes:e.delay_minutes??0}));
+    let followEvents=normalizeEvents(follow.events||[],chars,characterId).map((e:any)=>({...e,delay_minutes:e.delay_minutes??0}));
     const manifest=world.facts?.documentContents?.['Dataset Manifest'];
     const ownsManifest=characterId==='julia'&&Boolean(manifest);
     const sourceRequest=[...cascadeHistory].reverse().find((e:any)=>e.direction==='character_to_participant'||e.sender===rafael?.name||e.sender===action.characterId);
@@ -203,7 +203,7 @@ export async function POST(req:Request){
    return NextResponse.json({error:'director_generation_failed',detail:message,model,requestId,logs},{status:502});
   }
   const observer=await observerPromise;
-  log('observer',observer?'ok':'warn',observer?'Observer returned':'Observer failed; turn continues without evidence',{signals:observer?.signals?.length||0,uncovered:observer?.uncovered_areas?.length||0,competencies:[...new Set((observer?.signals||[]).map(signal=>signal.competency))]});
+  log('observer',observer?'ok':'warn',observer?'Observer returned':'Observer failed; turn continues without evidence',{signals:observer?.signals?.length||0,uncovered:observer?.uncovered_areas?.length||0,competencies:[...new Set((observer?.signals||[]).map(signal=>signal.competency))],error:observerError||undefined});
   const durationMs=Date.now()-startedAt;
   const diagnostic=buildDiagnostic(director,action,world.characters||[],durationMs,observer);
   log('diagnostic',diagnostic.severity==='error'?'error':diagnostic.severity==='attention'?'warn':'ok','Turn diagnosis',{severity:diagnostic.severity,headline:diagnostic.headline,durationMs});
