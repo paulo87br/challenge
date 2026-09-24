@@ -15,3 +15,4 @@ export type TurnDiagnostic={severity:'ok'|'attention'|'error';headline:string;su
 export type AssistantMessage={id:string;role:'you'|'ara';text:string;at:number};
 export type UploadedFile={id:string;name:string;sender:string;at:number;body:string;kind:string;size:number};
 export type NewsItem={id:string;source:string;at:number;headline:string;summary:string;article:string;tag?:string};
+export type Debrief={headline:string;narrative:string;moves:Array<{action:string;effect:string}>;blind_spots:Array<{observation:string;why_it_matters:string}>;uncovered:string[];questions_to_sit_with:string[];generatedAt:number};
