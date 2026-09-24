@@ -1,8 +1,12 @@
-import{NextResponse}from'next/server';import{getOpenAI,getModel}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';
+import{NextResponse}from'next/server';import{getOpenAI,getModel}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';
 
 async function jsonResponse(instructions:string,input:unknown){
  const jsonInstructions=`${instructions}\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a JSON object.`;
- const r=await getOpenAI().responses.create({model:getModel(),instructions:jsonInstructions,input:JSON.stringify(input),text:{format:{type:'json_object'}}});
+ // The Responses API rejects json_object formatting unless the word "json"
+ // appears in the input itself; putting it only in the instructions is what was
+ // failing every Observer call with a 400.
+ const payload={output_contract:'Respond with valid JSON only. The response must be a JSON object.',data:input};
+ const r=await getOpenAI().responses.create({model:getModel(),instructions:jsonInstructions,input:JSON.stringify(payload),text:{format:{type:'json_object'}}});
  if(r.status==='failed')throw new Error(`model_failed:${r.error?.code||'unknown'}:${r.error?.message||'no_message'}`);
  if(r.status==='incomplete')throw new Error(`model_incomplete:${r.incomplete_details?.reason||'unknown'}`);
  if(!r.output_text)throw new Error(`empty_model_output:status=${r.status}`);
@@ -96,18 +100,23 @@ export async function POST(req:Request){
    // Júlia has actually handed it over. Convert that hallucinated state into the
    // causal handoff the world requires.
    const existingFiles=()=>director.events.filter((e:any)=>e.channel==='files');
-   const artifactClaim=/(abri|abriu|aberto|recebi|recebemos|confirma|confirmou|está disponível|ja está disponível|já está disponível|encontrei o .*manifest|manifest confirma)/i;
+   // This used to match a bare "confirma", so a correct answer about who owns
+   // privacy was destroyed because it contained "confirmação". A claim only
+   // counts when the sentence is about the artifact AND asserts possession.
+   const artifactNoun=/(manifest|dataset|documento|arquivo|planilha|relatório)/i;
+   const possessionClaim=/(abri|abriu|aberto|recebi|recebemos|em m[ãa]os|anexei|anexado|encontrei|já (?:está|esta) dispon[íi]vel|ja (?:está|esta) dispon[íi]vel)/i;
+   const artifactClaim=(body:string)=>artifactNoun.test(body)&&possessionClaim.test(body);
    const rafael=chars.find((c:any)=>c.id==='rafael');
    const julia=chars.find((c:any)=>c.id==='julia');
    if(action.characterId==='rafael'&&rafael&&julia&&existingFiles().length===0){
-    const hallucinated=director.events.filter((e:any)=>e.channel==='chat'&&e.characterId==='rafael'&&artifactClaim.test(String(e.body||'')));
+    const hallucinated=director.events.filter((e:any)=>e.channel==='chat'&&e.characterId==='rafael'&&artifactClaim(String(e.body||'')));
     if(hallucinated.length){
      for(const event of hallucinated){
       event.body='Ainda não tenho o Dataset Manifest em mãos. @Júlia, consegue me enviar o manifest original do recorte que foi carregado? Preciso confirmar exatamente quais dados e identificadores entraram no ambiente de homologação antes de fechar esse ponto com compliance.';
       event.mentionedCharacterIds=[julia.id];
       event.recipientCharacterId=julia.id;
      }
-     log('causality','warn','Blocked unsupported artifact claim and converted it into a Júlia handoff',{from:'rafael',to:'julia',reason:'no files event existed'});
+     log('causality','warn','Blocked unsupported artifact claim and converted it into a Júlia handoff',{from:'rafael',to:'julia',reason:'no files event existed',replaced:hallucinated.map((e:any)=>String(e.body||'').slice(0,160))});
     }
    }
 
@@ -195,6 +204,26 @@ export async function POST(req:Request){
     return[{channel:'chat' as const,sender,characterId:file.characterId,recipientCharacterId:action.characterId,mentionedCharacterIds:[],subject:'Arquivo disponível',body:`O documento “${name}” já está disponível em Arquivos.`,urgency:.55,visible:true,reason:'Notificação de novo artefato.',delay_minutes:Number(file.delay_minutes)||0}];
    });
    director.events=[...(director.events||[]),...artifactNotices];
+
+   // A chat message saying the document is in Arquivos must not arrive before
+   // the files event it announces. The Director schedules artifacts a few
+   // minutes out, so without this the participant is told to look at a folder
+   // that is still empty.
+   const fileDelays=(director.events||[]).filter((e:any)=>e.channel==='files').map((e:any)=>Number(e.delay_minutes)||0);
+   if(fileDelays.length){
+    const earliestFile=Math.min(...fileDelays);
+    for(const event of director.events as any[]){
+     if(event.channel!=='chat')continue;
+     // Only an availability claim has to wait. "Vou colocar em Arquivos" is a
+     // promise and should stay immediate; "já está disponível" is the lie.
+     if(!/(j[áa]\s+est[áa]\s+dispon[íi]vel|dispon[íi]vel em arquivos|est[áa]\s+em arquivos)/i.test(String(event.body||'')))continue;
+     const current=Number(event.delay_minutes)||0;
+     if(current<earliestFile){
+      log('causality','warn','Delayed an availability notice to match its artifact',{from:current,to:earliestFile,body:String(event.body||'').slice(0,120)});
+      event.delay_minutes=earliestFile;
+     }
+    }
+   }
    log('artifact','ok','Artifact pipeline completed',{files:director.events.filter((e:any)=>e.channel==='files').map((e:any)=>({subject:e.subject,delay:e.delay_minutes,at:'assigned_on_apply'})),notifications:artifactNotices.map((e:any)=>({subject:e.subject,delay:e.delay_minutes}))});
   }catch(error){
    const message=error instanceof Error?error.message:String(error);
@@ -208,6 +237,10 @@ export async function POST(req:Request){
   const diagnostic=buildDiagnostic(director,action,world.characters||[],durationMs,observer);
   log('diagnostic',diagnostic.severity==='error'?'error':diagnostic.severity==='attention'?'warn':'ok','Turn diagnosis',{severity:diagnostic.severity,headline:diagnostic.headline,durationMs});
   log('request','ok','Turn completed',{requestId,elapsedMs:durationMs,totalEvents:director.events?.length||0});
+  // Local history, mirroring the shape the Supabase tables will have. Best
+  // effort: a read-only filesystem must not cost the participant their turn.
+  const stored=await recordTurn({requestId,durationMs,model,action,diagnostic,logs,events:(director.events||[]) as any[],observer});
+  log('history',stored==='saved'?'ok':'warn',`Turn history ${stored}`,{requestId,store:'sqlite'});
   return NextResponse.json({director,observer,engine:'llm',model,requestId,logs,diagnostic});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
