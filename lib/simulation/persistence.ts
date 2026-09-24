@@ -1,4 +1,4 @@
-import type{EvidenceSignal,WorldState}from'./types';
+import type{AssistantMessage,EvidenceSignal,UploadedFile,WorldState}from'./types';
 
 // Local persistence is a stand-in for the Supabase session store, not a
 // replacement: it is per browser, invisible to the instructor and not
@@ -7,7 +7,7 @@ import type{EvidenceSignal,WorldState}from'./types';
 // implementation and the rest of the app does not change.
 const KEY='challenge.session.v1';
 
-export type StoredSession={world:WorldState;evidence:EvidenceSignal[];savedAt:number};
+export type StoredSession={world:WorldState;evidence:EvidenceSignal[];assistant:AssistantMessage[];uploads:UploadedFile[];savedAt:number};
 
 export function loadSession():StoredSession|null{
  try{
@@ -16,12 +16,16 @@ export function loadSession():StoredSession|null{
   const parsed=JSON.parse(raw) as StoredSession;
   // A stored world from an older shape is worse than no world at all.
   if(!parsed?.world?.scenarioId||!Array.isArray(parsed.world.events))return null;
-  return{world:parsed.world,evidence:Array.isArray(parsed.evidence)?parsed.evidence:[],savedAt:parsed.savedAt||0};
+  return{world:parsed.world,evidence:Array.isArray(parsed.evidence)?parsed.evidence:[],assistant:Array.isArray(parsed.assistant)?parsed.assistant:[],uploads:Array.isArray(parsed.uploads)?parsed.uploads:[],savedAt:parsed.savedAt||0};
  }catch{return null}
 }
 
 export function saveSession(session:StoredSession){
- try{window.localStorage.setItem(KEY,JSON.stringify(session))}catch{}
+ // Uploaded documents can be large and localStorage quota is small; the
+ // session is worth more than any single attachment, so bodies are trimmed
+ // before they can blow the quota and take the whole run with them.
+ const uploads=session.uploads.slice(-10).map(file=>({...file,body:file.body.slice(0,60000)}));
+ try{window.localStorage.setItem(KEY,JSON.stringify({...session,uploads}))}catch{}
 }
 
 export function clearSession(){

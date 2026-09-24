@@ -12,3 +12,6 @@ export type EvidenceSignal={competency:string;behavior:string;evidence:string;st
 export type ObserverResult={signals:EvidenceSignal[];uncovered_areas:string[]};
 export type EngineLog={id:string;at:number;stage:string;status:'info'|'ok'|'warn'|'error';message:string;meta?:Record<string,unknown>;durationMs?:number};
 export type TurnDiagnostic={severity:'ok'|'attention'|'error';headline:string;summary:string;checks:Array<{id:string;status:'ok'|'attention'|'error';label:string;detail:string}>;causalChain:Array<{stage:string;status:'ok'|'attention'|'error';detail:string}>;requestId:string;durationMs:number};
+export type AssistantMessage={id:string;role:'you'|'ara';text:string;at:number};
+export type UploadedFile={id:string;name:string;sender:string;at:number;body:string;kind:string;size:number};
+export type NewsItem={id:string;source:string;at:number;headline:string;summary:string;article:string;tag?:string};

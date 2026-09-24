@@ -5,12 +5,16 @@ import type{Character}from'./types';
 // missing field away from correct disappears without a trace. Everything the
 // model produces passes through here first.
 
+// Nobody types "Júlia" with the accent in a hurry, and the engine must still
+// route the handoff. Compare names with diacritics folded away.
+function fold(value:string){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase()}
+
 function resolveCharacterId(event:any,characters:Character[]){
  if(event.characterId&&characters.some(character=>character.id===event.characterId))return event.characterId;
- const sender=String(event.sender||'').toLocaleLowerCase();
+ const sender=fold(event.sender);
  if(!sender)return event.characterId;
  const match=characters.find(character=>{
-  const name=String(character.name||'').toLocaleLowerCase();
+  const name=fold(character.name);
   const first=name.split(' ')[0]||'';
   return Boolean(name)&&(sender.includes(name)||(first.length>2&&sender.includes(first)));
  });
@@ -32,9 +36,10 @@ export function normalizeEvents(events:any[],characters:Character[],addressedCha
   if(event.channel!=='chat')return normalized;
   // An "@Júlia" written in the body is a real handoff, not just formatting.
   const mentioned=[...(normalized.mentionedCharacterIds||[])];
+  const body=fold(event.body);
   for(const character of characters){
-   const first=String(character.name||'').split(' ')[0];
-   if(first&&String(event.body||'').toLocaleLowerCase().includes('@'+first.toLocaleLowerCase()))mentioned.push(character.id);
+   const first=fold(String(character.name||'').split(' ')[0]);
+   if(first&&body.includes('@'+first))mentioned.push(character.id);
   }
   const unique=[...new Set(mentioned)].filter(Boolean);
   return{...normalized,mentionedCharacterIds:unique,recipientCharacterId:normalized.recipientCharacterId||unique[0]};
