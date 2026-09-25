@@ -6,6 +6,11 @@ export type SessionRow={id:string;world_state:WorldState|Record<string,never>;de
 
 // Returns null whenever Supabase is not configured or nobody is signed in, so
 // every caller degrades into the local-only mode the app already supports.
+async function loadScenario(supabase:any,scenarioKey:string):Promise<ScenarioConfig>{
+ const{data}=await supabase.from('challenge_scenarios').select('*').eq('key',scenarioKey).maybeSingle();
+ return data?{...defaultScenario,...data,temperature:data.temperature||{}}:defaultScenario;
+}
+
 export async function ensureSession(scenarioKey='atlas'):Promise<SessionRow|null>{
  const supabase=createSupabaseServerClient();
  if(!supabase)return null;
@@ -14,12 +19,19 @@ export async function ensureSession(scenarioKey='atlas'):Promise<SessionRow|null
  const{data:existing}=await supabase.from('challenge_sessions')
   .select('id,world_state,debrief,status').eq('user_id',user.id).eq('status','active')
   .order('started_at',{ascending:false}).limit(1).maybeSingle();
- if(existing)return existing as SessionRow;
+ const scenario=await loadScenario(supabase,scenarioKey);
+ if(existing){
+  // A session created before the Studio could author anything carries an empty
+  // world. Filling it in is what makes the scenario reach someone who signed in
+  // early; an empty world means no turn was ever synced, so nothing is lost.
+  const world=(existing.world_state as any)?.scenarioId?existing.world_state:worldFromScenario(scenario);
+  if(!(existing.world_state as any)?.scenarioId)
+   await supabase.from('challenge_sessions').update({world_state:world}).eq('id',existing.id);
+  return{...existing,world_state:world} as SessionRow;
+ }
  // A new world is built from the authored scenario. Sessions already running
  // keep the world they were played in: editing the Studio must not rewrite
  // somebody else's history mid-run.
- const{data:scenarioRow}=await supabase.from('challenge_scenarios').select('*').eq('key',scenarioKey).maybeSingle();
- const scenario:ScenarioConfig=scenarioRow?{...defaultScenario,...scenarioRow,temperature:scenarioRow.temperature||{}}:defaultScenario;
  const{data:created,error}=await supabase.from('challenge_sessions')
   .insert({user_id:user.id,scenario_key:scenarioKey,world_state:worldFromScenario(scenario)})
   .select('id,world_state,debrief,status').single();

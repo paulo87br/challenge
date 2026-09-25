@@ -17,9 +17,17 @@ useEffect(()=>{(async()=>{
   const data=await r.json();
   if(!data?.configured||!data.session)return;
   setSessionId(data.session.id);
-  // The server is the source of truth once a session exists there; a world
-  // left in this browser must not overwrite what the person did elsewhere.
-  if(data.session.world_state?.scenarioId)setWorld(data.session.world_state);
+  // The server is the source of truth once a session exists there, except
+  // against a browser that is further along: whichever world recorded more
+  // actions is the one with real work in it.
+  const remote=data.session.world_state;
+  if(remote?.scenarioId){
+   const local=loadSession();
+   const localActions=local?.world?.telemetry?.length||0;
+   const remoteActions=remote.telemetry?.length||0;
+   if(localActions>remoteActions)addClientLog('session','warn','Mantendo a sessão local, que está mais adiantada',{localActions,remoteActions});
+   else setWorld(remote);
+  }
   if(data.session.debrief)setDebrief(data.session.debrief);
   addClientLog('session','ok','Sessão sincronizada com o Supabase',{sessionId:data.session.id});
  }catch(error){addClientLog('session','warn','Seguindo apenas com a sessão local',{error:String(error)})}
