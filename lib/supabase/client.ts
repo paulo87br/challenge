@@ -1,9 +1,9 @@
 'use client';
 import{createBrowserClient}from'@supabase/ssr';
-import{supabaseEnv}from'./env';
 
-export function createSupabaseBrowserClient(){
- const env=supabaseEnv();
- if(!env)return null;
- return createBrowserClient(env.url,env.publishableKey);
+// The config arrives as props from a server component, which is why no
+// NEXT_PUBLIC_ variable is needed. The publishable key is public by design.
+export function createSupabaseBrowserClient(url:string,publishableKey:string){
+ if(!url||!publishableKey)return null;
+ return createBrowserClient(url,publishableKey);
 }

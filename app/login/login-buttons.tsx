@@ -1,10 +1,10 @@
 'use client';
 import{useState}from'react';import{createSupabaseBrowserClient}from'@/lib/supabase/client';
 type Provider='google'|'azure';
-export function LoginButtons({next,initialError}:{next:string;initialError:string}){
+export function LoginButtons({next,initialError,url,publishableKey}:{next:string;initialError:string;url:string;publishableKey:string}){
  const[busy,setBusy]=useState<Provider|null>(null);const[error,setError]=useState(initialError);
  async function signIn(provider:Provider){
-  const supabase=createSupabaseBrowserClient();
+  const supabase=createSupabaseBrowserClient(url,publishableKey);
   if(!supabase){setError('Supabase ainda não está configurado neste ambiente.');return}
   setBusy(provider);setError('');
   const{error}=await supabase.auth.signInWithOAuth({provider,options:{redirectTo:`${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,scopes:provider==='azure'?'email':undefined}});
