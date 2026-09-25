@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{getOpenAI,getModel}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';
+import{NextResponse}from'next/server';import{getOpenAI,getModel}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows}from'@/lib/supabase/sessions';
 
 async function jsonResponse(instructions:string,input:unknown){
  const jsonInstructions=`${instructions}\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a JSON object.`;
@@ -59,7 +59,7 @@ export async function POST(req:Request){
  };
  try{
   log('request','info','Turn received',{requestId});
-  const{world,action}=await req.json();
+  const{world,action,sessionId}=await req.json();
   if(!world||!action)return NextResponse.json({error:'world_and_action_required'},{status:400});
   const target=action.characterId?world.characters?.find((c:any)=>c.id===action.characterId):null;
   log('context','ok','Context assembled',{channel:action.channel,action:action.action,targetCharacterId:action.characterId,target:target?.name,events:world.events?.length||0,telemetry:world.telemetry?.length||0});
@@ -240,7 +240,10 @@ export async function POST(req:Request){
   // Local history, mirroring the shape the Supabase tables will have. Best
   // effort: a read-only filesystem must not cost the participant their turn.
   const stored=await recordTurn({requestId,durationMs,model,action,diagnostic,logs,events:(director.events||[]) as any[],observer});
-  log('history',stored==='saved'?'ok':'warn',`Turn history ${stored}`,{requestId,store:'sqlite'});
+  // Evidence goes up with the service role: the policies give the participant
+  // no insert on it, so the assessment record cannot be forged from the browser.
+  const remote=sessionId?await recordTurnRows(String(sessionId),action,observer?.signals||[],world?.minute):'unavailable';
+  log('history',stored==='saved'?'ok':'warn',`Turn history ${stored}`,{requestId,store:'sqlite',supabase:remote});
   return NextResponse.json({director,observer,engine:'llm',model,requestId,logs,diagnostic});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
