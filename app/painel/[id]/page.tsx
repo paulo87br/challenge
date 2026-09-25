@@ -11,13 +11,13 @@ export default async function SessionDetail({params}:{params:{id:string}}){
  if(!supabase)return <NoAccess reason="Supabase não está configurado neste ambiente."/>;
  const{data:{user}}=await supabase.auth.getUser();
  if(!user)return <NoAccess reason="Entre com a sua conta para continuar."/>;
- const{data:isInstructor}=await supabase.rpc('is_instructor');
+ const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
  if(!isInstructor)return <NoAccess reason="Sua conta não está na lista de instrutores deste Challenge."/>;
 
- const{data:session}=await supabase.from('sessions').select('*').eq('id',params.id).maybeSingle();
+ const{data:session}=await supabase.from('challenge_sessions').select('*').eq('id',params.id).maybeSingle();
  if(!session)return <NoAccess reason="Sessão não encontrada."/>;
- const{data:evidence}=await supabase.from('evidence').select('*').eq('session_id',params.id).order('created_at');
- const{data:telemetry}=await supabase.from('telemetry').select('*').eq('session_id',params.id).order('created_at');
+ const{data:evidence}=await supabase.from('challenge_evidence').select('*').eq('session_id',params.id).order('created_at');
+ const{data:telemetry}=await supabase.from('challenge_telemetry').select('*').eq('session_id',params.id).order('created_at');
 
  const admin=createSupabaseAdminClient();
  let email=session.user_id;

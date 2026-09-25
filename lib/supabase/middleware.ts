@@ -38,7 +38,7 @@ export async function updateSession(request:NextRequest){
   return NextResponse.redirect(target);
  }
  if(user&&INSTRUCTOR_PREFIXES.some(prefix=>path.startsWith(prefix))){
-  const{data:isInstructor}=await supabase.rpc('is_instructor');
+  const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
   if(!isInstructor){
    // Sent back to their own workspace rather than shown a refusal: a
    // participant has no reason to learn that these routes exist.

@@ -10,14 +10,14 @@ export default async function Painel(){
  if(!supabase)return <NoAccess reason="Supabase não está configurado neste ambiente."/>;
  const{data:{user}}=await supabase.auth.getUser();
  if(!user)return <NoAccess reason="Entre com a sua conta para continuar."/>;
- const{data:isInstructor}=await supabase.rpc('is_instructor');
+ const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
  if(!isInstructor)return <NoAccess reason="Sua conta não está na lista de instrutores deste Challenge."/>;
 
- const{data:sessions}=await supabase.from('sessions')
+ const{data:sessions}=await supabase.from('challenge_sessions')
   .select('id,user_id,scenario_key,status,started_at,updated_at,world_state,debrief')
   .order('updated_at',{ascending:false}).limit(100);
- const{data:evidence}=await supabase.from('evidence').select('session_id,competency,polarity');
- const{data:telemetry}=await supabase.from('telemetry').select('session_id');
+ const{data:evidence}=await supabase.from('challenge_evidence').select('session_id,competency,polarity');
+ const{data:telemetry}=await supabase.from('challenge_telemetry').select('session_id');
 
  // Emails live in auth.users, which RLS never exposes. Only an instructor
  // reaches this line, and only the addresses of people in these sessions.
