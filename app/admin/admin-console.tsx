@@ -2,19 +2,20 @@
 import{useState}from'react';import Link from 'next/link';
 import{SlidersHorizontal,Users,Bug}from'lucide-react';
 import{ScenarioForm}from'./scenario-form';
-import type{ScenarioConfig}from'@/lib/simulation/scenario';
+import type{ScenarioConfig}from'@/lib/simulation/scenario';import type{Character}from'@/lib/simulation/types';
 
 export type Participant={userId:string;email:string;createdAt:string;lastSignIn:string|null;
  sessionId:string|null;status:string|null;actions:number;evidence:number;risks:number;
  hasDebrief:boolean;startedAt:string|null;updatedAt:string|null};
 export type TurnRow={id:string;requestId:string;createdAt:string;severity:string|null;headline:string|null;
- summary:string|null;model:string|null;actionName:string|null;actionChannel:string|null;durationMs:number|null;
+ summary:string|null;model:string|null;provider:string|null;inputTokens:number|null;outputTokens:number|null;modelCalls:number|null;
+ actionName:string|null;actionChannel:string|null;durationMs:number|null;
  email:string;logs:Array<{stage:string;status:string;message:string;meta:any}>};
 
 const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug}];
 const when=(value:string|null)=>value?new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 
-export function AdminConsole({scenario,participants,turns}:{scenario:ScenarioConfig;participants:Participant[];turns:TurnRow[]}){
+export function AdminConsole({scenario,defaultCast,participants,turns}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[]}){
  const[tab,setTab]=useState('cenario');
  const entered=participants.length;
  const exercised=participants.filter(p=>p.actions>0).length;
@@ -36,7 +37,7 @@ export function AdminConsole({scenario,participants,turns}:{scenario:ScenarioCon
   <nav className="console-tabs">{TABS.map(({id,label,Icon})=>
    <button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={17}/>{label}</button>)}</nav>
 
-  {tab==='cenario'&&<ScenarioForm initial={scenario}/>}
+  {tab==='cenario'&&<ScenarioForm initial={scenario} defaultCast={defaultCast}/>}
 
   {tab==='pessoas'&&<section className="panel">
    <h2>Quem entrou, quem exercitou, o que saiu</h2>
@@ -63,12 +64,14 @@ export function AdminConsole({scenario,participants,turns}:{scenario:ScenarioCon
    <div className="panel debug-head"><div>
     <div className="eyebrow">ENGINE DIAGNOSTICS</div><h2>Motor</h2>
     <p className="muted">Os {turns.length} turnos mais recentes de todas as sessões: contexto → Director → menções → cascata → artefatos → Observer.</p>
+    {turns.length>0&&(()=>{const inTok=turns.reduce((s,t)=>s+(t.inputTokens||0),0),outTok=turns.reduce((s,t)=>s+(t.outputTokens||0),0),calls=turns.reduce((s,t)=>s+(t.modelCalls||0),0);
+     return <p className="muted"><b>{inTok.toLocaleString('pt-BR')}</b> tokens de entrada e <b>{outTok.toLocaleString('pt-BR')}</b> de saída em {calls} chamadas ao modelo · média de <b>{Math.round((inTok+outTok)/turns.length).toLocaleString('pt-BR')}</b> tokens por turno.</p>})()}
    </div></div>
    {turns.length===0&&<div className="panel"><p className="muted">Nenhum turno registrado ainda.</p></div>}
    {turns.map(turn=><details className="panel turn-card" key={turn.id}>
     <summary>
      <span className={'diagnostic-pill '+(turn.severity==='ok'?'ok':turn.severity==='error'?'error':'attention')}>{turn.severity||'—'}</span>
-     <span className="turn-headline"><b>{turn.headline||'Turno'}</b><small>{turn.email} · {turn.actionChannel}/{turn.actionName} · {when(turn.createdAt)}{turn.durationMs?` · ${(turn.durationMs/1000).toFixed(1)}s`:''}</small></span>
+     <span className="turn-headline"><b>{turn.headline||'Turno'}</b><small>{turn.email} · {turn.actionChannel}/{turn.actionName} · {when(turn.createdAt)}{turn.durationMs?` · ${(turn.durationMs/1000).toFixed(1)}s`:''}{turn.provider?` · ${turn.provider}/${turn.model}`:''}{turn.inputTokens!==null?` · ${(turn.inputTokens||0)+(turn.outputTokens||0)} tokens em ${turn.modelCalls||0} chamadas`:''}</small></span>
     </summary>
     {turn.summary&&<p className="muted">{turn.summary}</p>}
     <div className="turn-logs">{turn.logs.map((log,i)=><div className={'debug-row debug-'+log.status} key={i}>

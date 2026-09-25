@@ -132,3 +132,16 @@
 .turn-logs .debug-row{grid-template-columns:110px 1fr}
 @media(max-width:900px){.field-grid,.sliders{grid-template-columns:1fr}.console-summary{grid-template-columns:1fr}.people-row{grid-template-columns:1fr 1fr}.people-who{grid-column:1/-1}}
 .debrief-empty .btn.restart{background:#fff;color:#514a65;margin-top:10px}
+.provider-row{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px}
+.provider-chip{border:2px solid #211a38;background:#fff;color:#514a65;border-radius:999px;padding:8px 15px;cursor:pointer;font-weight:800;font-size:13px}
+.provider-chip.active{background:#12b89a;color:#fff;box-shadow:3px 3px 0 #211a38}
+.provider-note{font-size:12px;margin-bottom:6px}
+.provider-note code{background:#f5f1fa;border-radius:6px;padding:2px 6px;font-size:11px}
+.persona-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;margin-top:16px}
+.persona-card{border:2px solid #e7dfef;border-radius:16px;padding:15px;background:#fffdf8}
+.persona-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.persona-remove{padding:6px 9px!important;box-shadow:2px 2px 0 #211a38}
+.persona-traits{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
+.persona-traits .slider-label{font-size:11px}
+.persona-card .field-grid{grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}
+.persona-card .slider-label{font-size:12px}

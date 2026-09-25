@@ -1,9 +1,13 @@
 'use client';
 import{useState}from'react';import{Save}from'lucide-react';
-import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';
+import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
 
-export function ScenarioForm({initial}:{initial:ScenarioConfig}){
+export function ScenarioForm({initial,defaultCast}:{initial:ScenarioConfig;defaultCast:Character[]}){
  const[form,setForm]=useState<ScenarioConfig>(initial);
+ // An empty cast means the scenario still rides on the compiled default; show
+ // that cast so editing it is a choice rather than starting from nothing.
+ const usingDefaults=!initial.characters?.length;
+ const cast=form.characters?.length?form.characters:defaultCast;
  const[state,setState]=useState<'idle'|'saving'|'saved'|'error'>('idle');
  const[message,setMessage]=useState('');
  const set=(patch:Partial<ScenarioConfig>)=>{setForm(current=>({...current,...patch}));setState('idle')};
@@ -15,6 +19,7 @@ export function ScenarioForm({initial}:{initial:ScenarioConfig}){
    const r=await fetch('/api/admin/scenario',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(form)});
    const data=await r.json();
    if(!r.ok)throw new Error(data.detail||data.error||`HTTP ${r.status}`);
+   if(data.partial){setState('error');setMessage(data.detail||'Salvo parcialmente.');return}
    setState('saved');
   }catch(error){setState('error');setMessage(error instanceof Error?error.message:'Falha ao salvar.')}
  }
@@ -52,6 +57,10 @@ export function ScenarioForm({initial}:{initial:ScenarioConfig}){
     })}
    </div>
   </section>
+
+  <EnginePicker provider={(form.provider||'openai') as ProviderId} model={form.model||''} onChange={next=>set(next as Partial<ScenarioConfig>)}/>
+
+  <PersonaEditor characters={cast} usingDefaults={usingDefaults} onChange={next=>set({characters:next})}/>
 
   <div className="studio-save">
    {state==='error'&&<div className="runtime-error">{message}</div>}

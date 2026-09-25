@@ -1,6 +1,6 @@
 import{redirect}from'next/navigation';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
-import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';
+import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';import{initialWorld}from'@/lib/simulation/runtime';
 import{AdminConsole,type Participant,type TurnRow}from'./admin-console';
 
 export const dynamic='force-dynamic';
@@ -52,9 +52,10 @@ export default async function Admin(){
  const turns:TurnRow[]=(turnRows||[]).map(turn=>({
   id:turn.id,requestId:turn.request_id,createdAt:turn.created_at,severity:turn.severity,headline:turn.headline,
   summary:turn.summary,model:turn.model,actionName:turn.action_name,actionChannel:turn.action_channel,
-  durationMs:turn.duration_ms,email:sessionOwner.get(turn.session_id)||'—',
+  durationMs:turn.duration_ms,provider:turn.provider,inputTokens:turn.input_tokens,outputTokens:turn.output_tokens,modelCalls:turn.model_calls,
+  email:sessionOwner.get(turn.session_id)||'—',
   logs:(logRows||[]).filter(log=>log.turn_id===turn.id).map(log=>({stage:log.stage,status:log.status,message:log.message,meta:log.meta}))
  }));
 
- return <AdminConsole scenario={scenario} participants={participants} turns={turns}/>;
+ return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns}/>;
 }

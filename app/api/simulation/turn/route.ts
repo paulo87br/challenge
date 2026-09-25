@@ -1,21 +1,17 @@
-import{NextResponse}from'next/server';import{getOpenAI,getModel}from'@/lib/ai/openai';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows}from'@/lib/supabase/sessions';
+import{NextResponse}from'next/server';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider,type ProviderId}from'@/lib/ai/providers';import{artifactFor,fold,scenarioArtifacts,type ScenarioArtifact}from'@/lib/simulation/scenario-world';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows}from'@/lib/supabase/sessions';
 
-async function jsonResponse(instructions:string,input:unknown){
- const jsonInstructions=`${instructions}\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a JSON object.`;
- // The Responses API rejects json_object formatting unless the word "json"
- // appears in the input itself; putting it only in the instructions is what was
- // failing every Observer call with a 400.
- const payload={output_contract:'Respond with valid JSON only. The response must be a JSON object.',data:input};
- const r=await getOpenAI().responses.create({model:getModel(),instructions:jsonInstructions,input:JSON.stringify(payload),text:{format:{type:'json_object'}}});
- if(r.status==='failed')throw new Error(`model_failed:${r.error?.code||'unknown'}:${r.error?.message||'no_message'}`);
- if(r.status==='incomplete')throw new Error(`model_incomplete:${r.incomplete_details?.reason||'unknown'}`);
- if(!r.output_text)throw new Error(`empty_model_output:status=${r.status}`);
- try{return JSON.parse(r.output_text)}catch{throw new Error(`invalid_json_output:${r.output_text.slice(0,300)}`)}
+type Usage={inputTokens:number;outputTokens:number;calls:number};
+
+async function jsonResponse(instructions:string,input:unknown,engine:{provider:ProviderId;model:string},usage:Usage){
+ const result=await complete({provider:engine.provider,model:engine.model,instructions,input:JSON.stringify(input)});
+ usage.inputTokens+=result.usage.inputTokens;
+ usage.outputTokens+=result.usage.outputTokens;
+ usage.calls+=1;
+ if(!result.text.trim())throw new Error('empty_model_output');
+ return parseJson(result.text);
 }
-
 export async function POST(req:Request){
- const model=getModel();
- const requestId=crypto.randomUUID();
+  const requestId=crypto.randomUUID();
  const startedAt=Date.now();
  const logs:EngineLog[]=[];
  const log=(stage: string,status:EngineLog['status'],message:string,meta?:Record<string,unknown>)=>logs.push({id:crypto.randomUUID(),at:Date.now(),stage,status,message,meta});
@@ -59,7 +55,11 @@ export async function POST(req:Request){
  };
  try{
   log('request','info','Turn received',{requestId});
-  const{world,action,sessionId}=await req.json();
+  const{world,action,sessionId,engine:requested,artifacts:requestedArtifacts}=await req.json();
+  const engine={provider:isProvider(requested?.provider)?requested.provider:DEFAULT_PROVIDER,
+   model:String(requested?.model||'')||defaultModel(isProvider(requested?.provider)?requested.provider:DEFAULT_PROVIDER)};
+  const artifacts:ScenarioArtifact[]=Array.isArray(requestedArtifacts)?requestedArtifacts:[];
+  const usage:Usage={inputTokens:0,outputTokens:0,calls:0};
   if(!world||!action)return NextResponse.json({error:'world_and_action_required'},{status:400});
   const target=action.characterId?world.characters?.find((c:any)=>c.id===action.characterId):null;
   log('context','ok','Context assembled',{channel:action.channel,action:action.action,targetCharacterId:action.characterId,target:target?.name,events:world.events?.length||0,telemetry:world.telemetry?.length||0});
@@ -81,42 +81,43 @@ export async function POST(req:Request){
   // while the Director and the mention cascade are still talking to the model.
   log('observer','info','Observer started alongside Director');
   let observerError='';
-  const observerPromise=jsonResponse(OBSERVER_PROMPT,{seat:world.seat,temperature:world.temperature,targetCharacter:target,recentTelemetry:[...(world.telemetry||[]).slice(-12),action]})
+  const observerPromise=jsonResponse(OBSERVER_PROMPT,{seat:world.seat,temperature:world.temperature,targetCharacter:target,recentTelemetry:[...(world.telemetry||[]).slice(-12),action]},engine,usage)
    .then(result=>result as ObserverResult)
    .catch(error=>{observerError=error instanceof Error?error.message:String(error);console.error('observer_generation_error',observerError);return null});
 
   let director:DirectorResult;
   try{
-   log('director','info','Calling Director',{model,history:conversationHistory.length});
-   director=await jsonResponse(DIRECTOR_PROMPT,context);
+   log('director','info','Calling Director',{provider:engine.provider,model:engine.model,history:conversationHistory.length});
+   director=await jsonResponse(DIRECTOR_PROMPT,context,engine,usage);
    log('director','ok','Director returned',{summary:director.summary,clockAdvance:director.clock_advance_minutes,eventCount:director.events?.length||0,eventChannels:(director.events||[]).map((e:any)=>e.channel)});
    const chars=(world.characters||[]) as any[];
    director.events=normalizeEvents(director.events||[],chars,action.characterId);
    log('events','info','Events normalized',{events:(director.events||[]).map((e:any)=>({channel:e.channel,sender:e.sender,characterId:e.characterId,recipientCharacterId:e.recipientCharacterId,visible:e.visible,delay:e.delay_minutes,body:String(e.body||'').slice(0,140)}))});
    log('mentions','info','Mentions normalized',{mentions:(director.events||[]).filter((e:any)=>e.channel==='chat'&&e.mentionedCharacterIds?.length).map((e:any)=>({sender:e.sender,recipient:e.recipientCharacterId,mentioned:e.mentionedCharacterIds,body:String(e.body).slice(0,180)}))});
 
-   // Artifact truth is event-based: conversational claims cannot make a file exist.
-   // In the Atlas scenario Rafael must not "open" or "confirm" the manifest before
-   // Júlia has actually handed it over. Convert that hallucinated state into the
-   // causal handoff the world requires.
+   // Artifact truth is event-based: a conversational claim cannot make a file
+   // exist. This used to name 'rafael', 'julia' and 'Dataset Manifest' directly,
+   // which meant it fired in every scenario -- and once overwrote a correct
+   // answer about who owned privacy because it contained "confirmação". The
+   // rule now asks the scenario who holds which document.
    const existingFiles=()=>director.events.filter((e:any)=>e.channel==='files');
-   // This used to match a bare "confirma", so a correct answer about who owns
-   // privacy was destroyed because it contained "confirmação". A claim only
-   // counts when the sentence is about the artifact AND asserts possession.
-   const artifactNoun=/(manifest|dataset|documento|arquivo|planilha|relatório)/i;
    const possessionClaim=/(abri|abriu|aberto|recebi|recebemos|em m[ãa]os|anexei|anexado|encontrei|já (?:está|esta) dispon[íi]vel|ja (?:está|esta) dispon[íi]vel)/i;
-   const artifactClaim=(body:string)=>artifactNoun.test(body)&&possessionClaim.test(body);
-   const rafael=chars.find((c:any)=>c.id==='rafael');
-   const julia=chars.find((c:any)=>c.id==='julia');
-   if(action.characterId==='rafael'&&rafael&&julia&&existingFiles().length===0){
-    const hallucinated=director.events.filter((e:any)=>e.channel==='chat'&&e.characterId==='rafael'&&artifactClaim(String(e.body||'')));
-    if(hallucinated.length){
-     for(const event of hallucinated){
-      event.body='Ainda não tenho o Dataset Manifest em mãos. @Júlia, consegue me enviar o manifest original do recorte que foi carregado? Preciso confirmar exatamente quais dados e identificadores entraram no ambiente de homologação antes de fechar esse ponto com compliance.';
-      event.mentionedCharacterIds=[julia.id];
-      event.recipientCharacterId=julia.id;
-     }
-     log('causality','warn','Blocked unsupported artifact claim and converted it into a Júlia handoff',{from:'rafael',to:'julia',reason:'no files event existed',replaced:hallucinated.map((e:any)=>String(e.body||'').slice(0,160))});
+   const speaker=chars.find((c:any)=>c.id===action.characterId);
+   if(speaker&&artifacts.length&&existingFiles().length===0){
+    for(const event of director.events){
+     if(event.channel!=='chat'||event.characterId!==speaker.id)continue;
+     const body=String(event.body||'');
+     if(!possessionClaim.test(body))continue;
+     const artifact=artifactFor(body,artifacts);
+     // Only a claim about an artifact this person does not own is a problem.
+     if(!artifact||artifact.ownerId===speaker.id)continue;
+     const owner=chars.find((c:any)=>c.id===artifact.ownerId);
+     if(!owner)continue;
+     log('causality','warn','Blocked unsupported artifact claim and routed it to the owner',
+      {from:speaker.id,to:owner.id,artifact:artifact.name,replaced:body.slice(0,160)});
+     event.body=`Ainda não tenho ${artifact.name} em mãos. @${String(owner.name).split(' ')[0]}, consegue me enviar? Preciso confirmar isso antes de fechar esse ponto.`;
+     event.mentionedCharacterIds=[owner.id];
+     event.recipientCharacterId=owner.id;
     }
    }
 
@@ -152,24 +153,29 @@ export async function POST(req:Request){
      recentTelemetry:[...(world.telemetry||[]).slice(-8),action],
      runtimeDirective:'You have just been brought into a live workplace chat by another character mentioning you. Respond as this character now. Read the latest message carefully and answer the concrete request. If the message asks you for a document or evidence you own, say what you can provide and, when appropriate, actually emit the files artifact in your events. Do not narrate the simulation. Return valid JSON.'
     };
-    const follow=await jsonResponse(DIRECTOR_PROMPT,cascadeContext) as DirectorResult;
+    const follow=await jsonResponse(DIRECTOR_PROMPT,cascadeContext,engine,usage) as DirectorResult;
     log('cascade','ok','Mentioned character returned',{characterId,character:character.name,summary:follow.summary,eventCount:follow.events?.length||0,eventChannels:(follow.events||[]).map((e:any)=>e.channel)});
     let followEvents=normalizeEvents(follow.events||[],chars,characterId).map((e:any)=>({...e,delay_minutes:e.delay_minutes??0}));
-    const manifest=world.facts?.documentContents?.['Dataset Manifest'];
-    const ownsManifest=characterId==='julia'&&Boolean(manifest);
-    const sourceRequest=[...cascadeHistory].reverse().find((e:any)=>e.direction==='character_to_participant'||e.sender===rafael?.name||e.sender===action.characterId);
-    const requestsManifest=ownsManifest&&/(manifest|tabela|campo|dataset|dados|identificad)/i.test(String(sourceRequest?.body||''));
+    // What this person owns, and whether the thread actually asked for it.
+    const owned=artifacts.filter(artifact=>artifact.ownerId===characterId);
+    const sourceRequest=[...cascadeHistory].reverse().find((e:any)=>String(e.body||'').trim().length>0);
+    const requested=owned.find(artifact=>artifactFor(String(sourceRequest?.body||''),[artifact]));
     const characterSpoke=followEvents.some((e:any)=>e.channel==='chat'&&e.characterId===characterId);
     if(!characterSpoke){
-      log('cascade','warn','Mentioned character produced no chat event; deterministic response fallback',{characterId,character:character.name});
-      const sourceCharacter=chars.find((c:any)=>c.id===action.characterId);
-      const firstName=String(sourceCharacter?.name||'Rafael').split(' ')[0];
-      followEvents.push({channel:'chat',sender:character.name,characterId,recipientCharacterId:action.characterId,mentionedCharacterIds:action.characterId?[action.characterId]:[],subject:undefined,body:requestsManifest?('@'+firstName+', encontrei o Dataset Manifest. Estou te enviando o manifest original, com a origem, tabelas e campos do recorte.'):'Entendi. Posso ajudar com essa solicitação e vou verificar a informação disponível no meu contexto.',urgency:.65,visible:true,reason:'Fallback de continuidade do handoff.',delay_minutes:0});
+     log('cascade','warn','Mentioned character produced no chat event; deterministic response fallback',{characterId,character:character.name});
+     const sourceCharacter=chars.find((c:any)=>c.id===action.characterId);
+     const firstName=String(sourceCharacter?.name||'').split(' ')[0];
+     followEvents.push({channel:'chat',sender:character.name,characterId,recipientCharacterId:action.characterId,
+      mentionedCharacterIds:action.characterId?[action.characterId]:[],subject:undefined,
+      body:requested?`${firstName?'@'+firstName+', ':''}encontrei ${requested.name}. Estou te enviando agora.`
+                    :'Entendi. Posso ajudar com isso e vou verificar o que tenho aqui.',
+      urgency:.65,visible:true,reason:'Fallback de continuidade do handoff.',delay_minutes:0});
     }
-    // A chat claim such as 'te enviei' never substitutes for the files event.
-    if(requestsManifest&&!followEvents.some((e:any)=>e.channel==='files'&&/manifest/i.test(String(e.subject||e.body||'')))){
-      followEvents.push({channel:'files',sender:character.name,characterId,subject:'Dataset Manifest',body:String(manifest),urgency:.7,visible:true,reason:'Artefato liberado pela responsável pelo dataset.',delay_minutes:3});
-      log('artifact','warn','Manifest generated by causal handoff fallback',{characterId,subject:'Dataset Manifest',delay_minutes:3});
+    // A chat claim such as "te enviei" never substitutes for the files event.
+    if(requested&&!followEvents.some((e:any)=>e.channel==='files'&&fold(`${e.subject||''} ${e.body||''}`).includes(fold(requested.name)))){
+     followEvents.push({channel:'files',sender:character.name,characterId,subject:requested.name,body:String(requested.body),
+      urgency:.7,visible:true,reason:'Artefato liberado por quem o possui.',delay_minutes:3});
+     log('artifact','warn','Artifact generated by causal handoff fallback',{characterId,subject:requested.name,delay_minutes:3});
     }
     director.events=[...(director.events||[]),...followEvents];
     if(Number(follow.clock_advance_minutes)>Number(director.clock_advance_minutes))director.clock_advance_minutes=follow.clock_advance_minutes;
@@ -178,22 +184,11 @@ export async function POST(req:Request){
     if(follow.state_patch?.characters)director.state_patch.characters=[...(director.state_patch?.characters||[]),...follow.state_patch.characters];
    }
 
-   // The current Atlas scenario has a known evidence path: Rafael can route
-   // the request to Júlia, who owns the Dataset Manifest. If the chain clearly
-   // asks for that artifact, make the artifact concrete rather than leaving
-   // the participant with a promise that can never resolve.
-   const allText=(director.events||[]).map((e:any)=>String(e.body||'')).join(' ');
-   const handoffToJulia=director.events.some((e:any)=>e.channel==='chat'&&e.mentionedCharacterIds?.includes('julia')&&/(manifest|tabela|campo|dataset|dados|identificad)/i.test(String(e.body||'')));
-   const asksManifest=handoffToJulia;
-   log('artifact','info','Artifact detection evaluated',{asksManifest,handoffToJulia,generatedFiles:(director.events||[]).filter((e:any)=>e.channel==='files').map((e:any)=>({subject:e.subject,delay:e.delay_minutes,characterId:e.characterId}))});
-   const hasManifest=director.events.some((e:any)=>e.channel==='files'&&/manifest|dataset/i.test(`${e.subject||''} ${e.body||''}`));
-   if(asksManifest&&!hasManifest){
-    const body=world.facts?.documentContents?.['Dataset Manifest']||'Dataset Manifest — conteúdo não disponível.';
-    const owner=chars.find((c:any)=>c.id==='julia');
-    if(owner){
-     log('artifact','info','Manifest requested from Júlia; waiting for owner response',{owner:owner.name});
-    }
-   }
+   // Whoever was pulled into the thread and holds a document the thread asked
+   // for is the reason an artifact should exist this turn. No scenario is named.
+   const requestedArtifact=(director.events||[]).some((e:any)=>e.channel==='chat'&&e.mentionedCharacterIds?.length&&artifactFor(String(e.body||''),artifacts));
+   log('artifact','info','Artifact detection evaluated',{requestedArtifact,
+    generatedFiles:(director.events||[]).filter((e:any)=>e.channel==='files').map((e:any)=>({subject:e.subject,delay:e.delay_minutes,characterId:e.characterId}))});
 
    const artifactNotices:Array<Omit<WorldEvent,'id'|'at'>>=(director.events||[]).filter((e:any)=>e.channel==='files').flatMap((file:any)=>{
     const name=String(file.subject||'Documento');
@@ -227,24 +222,24 @@ export async function POST(req:Request){
    log('artifact','ok','Artifact pipeline completed',{files:director.events.filter((e:any)=>e.channel==='files').map((e:any)=>({subject:e.subject,delay:e.delay_minutes,at:'assigned_on_apply'})),notifications:artifactNotices.map((e:any)=>({subject:e.subject,delay:e.delay_minutes}))});
   }catch(error){
    const message=error instanceof Error?error.message:String(error);
-   console.error('director_generation_error',{model,message});
+   console.error('director_generation_error',{engine,message});
    log('director','error','Director pipeline failed',{message,elapsedMs:Date.now()-startedAt});
-   return NextResponse.json({error:'director_generation_failed',detail:message,model,requestId,logs},{status:502});
+   return NextResponse.json({error:'director_generation_failed',detail:message,model:engine.model,provider:engine.provider,requestId,logs},{status:502});
   }
   const observer=await observerPromise;
   log('observer',observer?'ok':'warn',observer?'Observer returned':'Observer failed; turn continues without evidence',{signals:observer?.signals?.length||0,uncovered:observer?.uncovered_areas?.length||0,competencies:[...new Set((observer?.signals||[]).map(signal=>signal.competency))],error:observerError||undefined});
   const durationMs=Date.now()-startedAt;
   const diagnostic=buildDiagnostic(director,action,world.characters||[],durationMs,observer);
   log('diagnostic',diagnostic.severity==='error'?'error':diagnostic.severity==='attention'?'warn':'ok','Turn diagnosis',{severity:diagnostic.severity,headline:diagnostic.headline,durationMs});
-  log('request','ok','Turn completed',{requestId,elapsedMs:durationMs,totalEvents:director.events?.length||0});
+  log('request','ok','Turn completed',{requestId,elapsedMs:durationMs,totalEvents:director.events?.length||0,provider:engine.provider,model:engine.model,tokens:usage});
   // Local history, mirroring the shape the Supabase tables will have. Best
   // effort: a read-only filesystem must not cost the participant their turn.
-  const stored=await recordTurn({requestId,durationMs,model,action,diagnostic,logs,events:(director.events||[]) as any[],observer});
+  const stored=await recordTurn({requestId,durationMs,model:engine.model,action,diagnostic,logs,events:(director.events||[]) as any[],observer});
   // Evidence goes up with the service role: the policies give the participant
   // no insert on it, so the assessment record cannot be forged from the browser.
-  const remote=sessionId?await recordTurnRows(String(sessionId),action,observer?.signals||[],world?.minute,{requestId,durationMs,model,diagnostic,logs}):'unavailable';
+  const remote=sessionId?await recordTurnRows(String(sessionId),action,observer?.signals||[],world?.minute,{requestId,durationMs,model:engine.model,provider:engine.provider,usage,diagnostic,logs}):'unavailable';
   log('history',stored==='saved'?'ok':'warn',`Turn history ${stored}`,{requestId,store:'sqlite',supabase:remote});
-  return NextResponse.json({director,observer,engine:'llm',model,requestId,logs,diagnostic});
+  return NextResponse.json({director,observer,engine:'llm',provider:engine.provider,model:engine.model,usage,requestId,logs,diagnostic});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
   console.error('turn_error',message);

@@ -3,6 +3,7 @@ import type{Debrief,EngineLog,EvidenceSignal,TurnDiagnostic,WorldState}from'@/li
 import{defaultScenario,worldFromScenario,type ScenarioConfig}from'@/lib/simulation/scenario';
 
 export type SessionRow={id:string;world_state:WorldState|Record<string,never>;debrief:Debrief|null;status:string};
+export type SessionBundle={session:SessionRow;scenario:ScenarioConfig};
 
 // Returns null whenever Supabase is not configured or nobody is signed in, so
 // every caller degrades into the local-only mode the app already supports.
@@ -11,7 +12,7 @@ async function loadScenario(supabase:any,scenarioKey:string):Promise<ScenarioCon
  return data?{...defaultScenario,...data,temperature:data.temperature||{}}:defaultScenario;
 }
 
-export async function ensureSession(scenarioKey='atlas'):Promise<SessionRow|null>{
+export async function ensureSession(scenarioKey='atlas'):Promise<SessionBundle|null>{
  const supabase=createSupabaseServerClient();
  if(!supabase)return null;
  const{data:{user}}=await supabase.auth.getUser();
@@ -27,7 +28,7 @@ export async function ensureSession(scenarioKey='atlas'):Promise<SessionRow|null
   const world=(existing.world_state as any)?.scenarioId?existing.world_state:worldFromScenario(scenario);
   if(!(existing.world_state as any)?.scenarioId)
    await supabase.from('challenge_sessions').update({world_state:world}).eq('id',existing.id);
-  return{...existing,world_state:world} as SessionRow;
+  return{session:{...existing,world_state:world} as SessionRow,scenario};
  }
  // A new world is built from the authored scenario. Sessions already running
  // keep the world they were played in: editing the Studio must not rewrite
@@ -36,7 +37,7 @@ export async function ensureSession(scenarioKey='atlas'):Promise<SessionRow|null
   .insert({user_id:user.id,scenario_key:scenarioKey,world_state:worldFromScenario(scenario)})
   .select('id,world_state,debrief,status').single();
  if(error)throw new Error(error.message);
- return created as SessionRow;
+ return{session:created as SessionRow,scenario};
 }
 
 export async function saveSessionState(sessionId:string,patch:{world?:WorldState;debrief?:Debrief|null;status?:string}){
@@ -55,7 +56,7 @@ export async function saveSessionState(sessionId:string,patch:{world?:WorldState
 // participant no insert on it, so the assessment record cannot be forged from
 // the browser even by someone who reads the bundle.
 export async function recordTurnRows(sessionId:string,action:any,signals:EvidenceSignal[],simulatedMinute?:number,
- turn?:{requestId:string;durationMs:number;model:string;diagnostic:TurnDiagnostic;logs:EngineLog[]}){
+ turn?:{requestId:string;durationMs:number;model:string;provider:string;usage:{inputTokens:number;outputTokens:number;calls:number};diagnostic:TurnDiagnostic;logs:EngineLog[]}){
  const admin=createSupabaseAdminClient();
  if(!admin||!sessionId)return 'unavailable' as const;
  const telemetry=admin.from('challenge_telemetry').insert({
@@ -72,7 +73,8 @@ export async function recordTurnRows(sessionId:string,action:any,signals:Evidenc
  // the one place the instructor cannot look.
  if(turn){
   const{data:turnRow}=await admin.from('challenge_turns').insert({
-   session_id:sessionId,request_id:turn.requestId,duration_ms:turn.durationMs,model:turn.model,
+   session_id:sessionId,request_id:turn.requestId,duration_ms:turn.durationMs,model:turn.model,provider:turn.provider,
+   input_tokens:turn.usage?.inputTokens??null,output_tokens:turn.usage?.outputTokens??null,model_calls:turn.usage?.calls??null,
    severity:turn.diagnostic?.severity??null,headline:turn.diagnostic?.headline??null,summary:turn.diagnostic?.summary??null,
    action_channel:action?.channel??null,action_name:action?.action??null,character_id:action?.characterId??null
   }).select('id').single();
