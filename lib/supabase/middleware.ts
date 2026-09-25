@@ -5,6 +5,9 @@ import{supabaseEnv}from'./env';
 type CookieToSet={name:string;value:string;options:CookieOptions};
 
 const PUBLIC_PREFIXES=['/login','/auth'];
+// The Studio authors the world and the panel holds other people's evidence.
+// Being signed in is not enough for either; both are instructor ground.
+const INSTRUCTOR_PREFIXES=['/admin','/painel'];
 
 export async function updateSession(request:NextRequest){
  const env=supabaseEnv();
@@ -33,6 +36,17 @@ export async function updateSession(request:NextRequest){
   target.pathname='/login';
   target.searchParams.set('next',path);
   return NextResponse.redirect(target);
+ }
+ if(user&&INSTRUCTOR_PREFIXES.some(prefix=>path.startsWith(prefix))){
+  const{data:isInstructor}=await supabase.rpc('is_instructor');
+  if(!isInstructor){
+   // Sent back to their own workspace rather than shown a refusal: a
+   // participant has no reason to learn that these routes exist.
+   const target=request.nextUrl.clone();
+   target.pathname='/lab';
+   target.search='';
+   return NextResponse.redirect(target);
+  }
  }
  if(user&&path==='/login'){
   const target=request.nextUrl.clone();

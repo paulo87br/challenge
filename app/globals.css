@@ -94,3 +94,10 @@
 .replay-text{color:#453e58;line-height:1.55}
 .replay-participante{background:#faf8ff}
 @media(max-width:700px){.replay-row{grid-template-columns:52px 1fr}.replay-text{grid-column:1/-1}.painel-row{flex-direction:column;align-items:flex-start}}
+.login-divider{display:flex;align-items:center;gap:12px;margin:18px 0 16px;color:#8b8398;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:2px;background:#e9e2f2}
+.login-email{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.login-email .btn{width:100%!important;justify-content:center;padding:12px}
+.login-sent{margin:22px 0 10px}
+.login-sent b{display:block;margin-bottom:8px}
+.login-sent p{line-height:1.6;margin-bottom:16px}
