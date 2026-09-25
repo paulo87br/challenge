@@ -242,7 +242,7 @@ export async function POST(req:Request){
   const stored=await recordTurn({requestId,durationMs,model,action,diagnostic,logs,events:(director.events||[]) as any[],observer});
   // Evidence goes up with the service role: the policies give the participant
   // no insert on it, so the assessment record cannot be forged from the browser.
-  const remote=sessionId?await recordTurnRows(String(sessionId),action,observer?.signals||[],world?.minute):'unavailable';
+  const remote=sessionId?await recordTurnRows(String(sessionId),action,observer?.signals||[],world?.minute,{requestId,durationMs,model,diagnostic,logs}):'unavailable';
   log('history',stored==='saved'?'ok':'warn',`Turn history ${stored}`,{requestId,store:'sqlite',supabase:remote});
   return NextResponse.json({director,observer,engine:'llm',model,requestId,logs,diagnostic});
  }catch(error){

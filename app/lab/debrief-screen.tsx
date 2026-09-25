@@ -2,8 +2,8 @@
 import{Flag,Lightbulb,Compass,HelpCircle}from'lucide-react';
 import type{Debrief}from'@/lib/simulation/types';
 
-export function DebriefScreen({debrief,evidenceCount,turnCount,busy,error,onGenerate}:{
- debrief:Debrief|null;evidenceCount:number;turnCount:number;busy:boolean;error:string;onGenerate:()=>void;
+export function DebriefScreen({debrief,evidenceCount,turnCount,busy,error,onGenerate,onRestart}:{
+ debrief:Debrief|null;evidenceCount:number;turnCount:number;busy:boolean;error:string;onGenerate:()=>void;onRestart:()=>void;
 }){
  if(!debrief)return <section className="panel debrief-empty">
   <div className="eyebrow">FECHAMENTO</div>
@@ -16,6 +16,7 @@ export function DebriefScreen({debrief,evidenceCount,turnCount,busy,error,onGene
   {evidenceCount===0&&<p className="muted">Ainda não há evidência registrada. Converse com as pessoas, busque documentos e tome decisões — o debrief se constrói a partir do que você realmente fizer.</p>}
   {error&&<div className="runtime-error">{error}</div>}
   <button className="btn primary" disabled={busy||evidenceCount===0} onClick={onGenerate}>{busy?'Escrevendo seu debrief…':'Encerrar e ver meu debrief'}</button>
+  <button className="btn restart" onClick={onRestart}>Recomeçar do zero</button>
  </section>;
 
  return <section className="debrief">
@@ -41,5 +42,6 @@ export function DebriefScreen({debrief,evidenceCount,turnCount,busy,error,onGene
   {debrief.questions_to_sit_with?.length>0&&<section className="panel"><h2><HelpCircle size={19}/> Perguntas para levar daqui</h2>
    <ul className="debrief-list">{debrief.questions_to_sit_with.map((item,i)=><li key={i}>{item}</li>)}</ul>
   </section>}
+  <div className="studio-save"><button className="btn" onClick={onRestart}>Recomeçar do zero</button></div>
  </section>;
 }

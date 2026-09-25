@@ -1,14 +1,60 @@
-import{redirect}from'next/navigation';import{createSupabaseServerClient}from'@/lib/supabase/server';
-const cast=[{name:'Marina Costa',role:'CEO',seniority:'C-Level',mood:'Pressionada',color:'#ff5f96',traits:['Direta','Política','Impaciente'],channels:'E-mail · Chat · Call'},{name:'Rafael Lima',role:'Engineering Lead',seniority:'Lead',mood:'Defensivo',color:'#55d6be',traits:['Técnico','Direto','Pragmático'],channels:'E-mail · Chat · Call'},{name:'Camila Rocha',role:'Privacy Officer',seniority:'Senior',mood:'Preocupada',color:'#7b61ff',traits:['Detalhista','Diplomática','Cautelosa'],channels:'E-mail · Chat · Call'}];
+import{redirect}from'next/navigation';
+import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
+import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';
+import{AdminConsole,type Participant,type TurnRow}from'./admin-console';
+
 export const dynamic='force-dynamic';
+export const metadata={title:'Studio · Challenge'};
+
 export default async function Admin(){
+ const supabase=createSupabaseServerClient();
  // Backstop for the middleware: a change to its matcher must not silently
  // open the Studio to participants.
- const supabase=createSupabaseServerClient();
- if(supabase){
-  const{data:{user}}=await supabase.auth.getUser();
-  if(!user)redirect('/login?next=%2Fadmin');
-  const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
-  if(!isInstructor)redirect('/lab');
- }
- return <main className="main"><div className="brand"><span className="brand-mark">C</span>Challenge <span className="muted">Studio</span></div><div className="hero"><div><div className="eyebrow">MONTE O MUNDO</div><div className="h1">Projeto Atlas</div><div className="muted">Defina o ponto de partida. O motor cuida de fazer a história reagir.</div></div><button className="btn primary">✦ Criar com IA</button></div><div className="cards">{[['Domínio','AI Governance'],['Assento','AI Governance Lead'],['Clima','72° 🔥'],['Experiência','~30 min']].map(([a,b])=><div className="panel" key={a}><div className="eyebrow">{a}</div><div className="metric">{b}</div></div>)}</div><br/><section className="panel"><h2>🌎 O mundo</h2><textarea className="input" style={{height:130}} defaultValue="Empresa de médio porte preparando um assistente de IA generativa para produção. Existe pressão executiva, documentação incompleta e sinais de uso de dados reais no piloto."/><h3>Quanto queremos mexer com esse cenário?</h3><div className="cards">{[['🌫️ Ambiguidade','70%'],['⏱️ Pressão','80%'],['⚡ Conflito','60%'],['🧩 Complexidade','70%']].map(([a,b])=><div className="panel" key={a}><div>{a}</div><div className="metric">{b}</div></div>)}</div></section><br/><section className="panel"><div className="hero"><div><div className="eyebrow">PERSONAS</div><h2 style={{marginBottom:4}}>Quem vive neste mundo?</h2><div className="muted">Personalidade é estável. Humor, confiança e pressão mudam durante o Challenge.</div></div><div style={{display:'flex',gap:10}}><button className="btn">+ Persona</button><button className="btn primary">✦ Gerar elenco</button></div></div><div className="cards" style={{gridTemplateColumns:'repeat(3,1fr)'}}>{cast.map(p=><article className="panel" key={p.name} style={{boxShadow:`5px 5px 0 ${p.color}`}}><div style={{display:'flex',alignItems:'center',gap:12}}><div style={{width:42,height:42,borderRadius:14,background:p.color,color:'#fff',display:'grid',placeItems:'center',fontWeight:900}}>{p.name.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div><b>{p.name}</b><div className="muted">{p.role} · {p.seniority}</div></div></div><br/><div><span className="tag">Humor: {p.mood}</span></div><p>{p.traits.map(t=><span className="tag" style={{marginRight:5,marginTop:6}} key={t}>{t}</span>)}</p><small className="muted">Canais: {p.channels}</small><hr style={{border:0,borderTop:'1px solid #e9e2f2',margin:'15px 0'}}/><button className="btn" style={{width:'100%'}}>Editar persona</button></article>)}</div></section></main>}
+ if(!supabase)redirect('/login');
+ const{data:{user}}=await supabase.auth.getUser();
+ if(!user)redirect('/login?next=%2Fadmin');
+ const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
+ if(!isInstructor)redirect('/lab');
+
+ const{data:scenarioRow}=await supabase.from('challenge_scenarios').select('*').eq('key','atlas').maybeSingle();
+ const scenario:ScenarioConfig=scenarioRow?{...defaultScenario,...scenarioRow,temperature:scenarioRow.temperature||{}}:defaultScenario;
+
+ const[{data:sessions},{data:evidence},{data:telemetry},{data:turnRows}]=await Promise.all([
+  supabase.from('challenge_sessions').select('id,user_id,status,started_at,updated_at,debrief').order('updated_at',{ascending:false}),
+  supabase.from('challenge_evidence').select('session_id,polarity'),
+  supabase.from('challenge_telemetry').select('session_id'),
+  supabase.from('challenge_turns').select('*').order('created_at',{ascending:false}).limit(40)
+ ]);
+ // Every query above tolerates a missing table: 003 may not be applied yet, and
+ // the Studio has to open anyway. An empty .in() is also an error, not a no-op.
+ const turnIds=(turnRows||[]).map(turn=>turn.id);
+ const{data:logRows}=turnIds.length
+  ? await supabase.from('challenge_engine_logs').select('turn_id,stage,status,message,meta').in('turn_id',turnIds).order('id')
+  : {data:[] as any[]};
+
+ // "Who entered" means every account, including the ones that signed in and
+ // never acted -- that absence is itself information for the instructor.
+ const admin=createSupabaseAdminClient();
+ const people=admin?(await admin.auth.admin.listUsers({perPage:200})).data?.users||[]:[];
+ const emailOf=(id:string)=>people.find(person=>person.id===id)?.email||id;
+ const count=(rows:any[]|null,id:string|null)=>id?(rows||[]).filter(row=>row.session_id===id).length:0;
+
+ const participants:Participant[]=people.map(person=>{
+  const session=(sessions||[]).find(row=>row.user_id===person.id);
+  return{userId:person.id,email:person.email||person.id,createdAt:person.created_at,
+   lastSignIn:person.last_sign_in_at||null,sessionId:session?.id||null,status:session?.status||null,
+   actions:count(telemetry,session?.id||null),evidence:count(evidence,session?.id||null),
+   risks:session?(evidence||[]).filter(row=>row.session_id===session.id&&row.polarity==='risk').length:0,
+   hasDebrief:Boolean(session?.debrief),startedAt:session?.started_at||null,updatedAt:session?.updated_at||null};
+ }).sort((a,b)=>(b.actions-a.actions)||a.email.localeCompare(b.email));
+
+ const sessionOwner=new Map((sessions||[]).map(row=>[row.id,emailOf(row.user_id)]));
+ const turns:TurnRow[]=(turnRows||[]).map(turn=>({
+  id:turn.id,requestId:turn.request_id,createdAt:turn.created_at,severity:turn.severity,headline:turn.headline,
+  summary:turn.summary,model:turn.model,actionName:turn.action_name,actionChannel:turn.action_channel,
+  durationMs:turn.duration_ms,email:sessionOwner.get(turn.session_id)||'—',
+  logs:(logRows||[]).filter(log=>log.turn_id===turn.id).map(log=>({stage:log.stage,status:log.status,message:log.message,meta:log.meta}))
+ }));
+
+ return <AdminConsole scenario={scenario} participants={participants} turns={turns}/>;
+}

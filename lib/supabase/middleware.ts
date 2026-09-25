@@ -49,8 +49,10 @@ export async function updateSession(request:NextRequest){
   }
  }
  if(user&&path==='/login'){
+  // An instructor signing in is going to work on the world, not to play in it.
+  const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
   const target=request.nextUrl.clone();
-  target.pathname='/lab';
+  target.pathname=isInstructor?'/admin':'/lab';
   target.search='';
   return NextResponse.redirect(target);
  }
