@@ -13,7 +13,12 @@ export const PROVIDERS:Record<ProviderId,{
 }>={
  groq:{label:'Groq',keyEnv:'GROQ_API_KEY',kind:'openai-compatible',baseURL:'https://api.groq.com/openai/v1',
   note:'Tem camada gratuita. O lugar barato para medir consumo antes de decidir.',
-  models:[{id:'llama-3.3-70b-versatile',label:'Llama 3.3 70B'},{id:'llama-3.1-8b-instant',label:'Llama 3.1 8B',note:'o mais rápido e barato'},{id:'openai/gpt-oss-120b',label:'GPT-OSS 120B'}]},
+  // Verified against GET /v1/models on 2026-09-26. The Llama chat models this
+  // list used to name no longer exist on Groq; Meta's remaining entries there
+  // are prompt guards with a 512-token window, not conversational models.
+  models:[{id:'openai/gpt-oss-120b',label:'GPT-OSS 120B',note:'contexto 131k · o mais capaz do catálogo'},
+          {id:'qwen/qwen3.8-27b',label:'Qwen3.8 27B',note:'contexto 131k'},
+          {id:'openai/gpt-oss-20b',label:'GPT-OSS 20B',note:'contexto 131k · o mais rápido'}]},
  openai:{label:'OpenAI',keyEnv:'OPENAI_API_KEY',kind:'openai-compatible',
   note:'O que o projeto usa hoje.',
   models:[{id:'gpt-5.6',label:'GPT-5.6'},{id:'gpt-4o',label:'GPT-4o'},{id:'gpt-4o-mini',label:'GPT-4o mini',note:'mais barato'}]},

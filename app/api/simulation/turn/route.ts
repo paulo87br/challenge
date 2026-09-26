@@ -2,6 +2,12 @@ import{NextResponse}from'next/server';import{complete,parseJson,DEFAULT_PROVIDER
 
 type Usage={inputTokens:number;outputTokens:number;calls:number};
 
+// "Vou colocar em Arquivos" is a promise; "já está disponível em Arquivos" is
+// the claim that has to be true. Suppressing the automatic notice, delaying a
+// notice to match its file, and the diagnostic check all have to agree on this
+// or a healthy turn gets flagged red.
+const ANNOUNCES_AVAILABILITY=/(j[áa]\s+est[áa]\s+dispon[íi]vel|dispon[íi]vel em arquivos|est[áa]\s+em arquivos|arquivo dispon[íi]vel)/i;
+
 async function jsonResponse(instructions:string,input:unknown,engine:{provider:ProviderId;model:string},usage:Usage){
  const result=await complete({provider:engine.provider,model:engine.model,instructions,input:JSON.stringify(input)});
  usage.inputTokens+=result.usage.inputTokens;
@@ -21,7 +27,7 @@ export async function POST(req:Request){
   const cascaded=mentions.filter(id=>events.some((e:any)=>e.channel==='chat'&&e.characterId===id));
   const fallback=logs.some(l=>l.stage==='artifact'&&l.status==='warn'&&/fallback/i.test(l.message));
   const hasArtifact=files.length>0;
-  const artifactNotice=chats.some((e:any)=>e.subject==='Arquivo disponível'||/já está disponível em Arquivos/i.test(String(e.body||'')));
+  const artifactNotice=chats.some((e:any)=>e.subject==='Arquivo disponível'||ANNOUNCES_AVAILABILITY.test(String(e.body||'')));
   const checks:Array<TurnDiagnostic['checks'][number]>=[];
   // The failure this catches: the Director answers, the event is stored, and the
   // participant still sees silence because the reply was invisible, misattributed
@@ -89,6 +95,23 @@ export async function POST(req:Request){
   try{
    log('director','info','Calling Director',{provider:engine.provider,model:engine.model,history:conversationHistory.length});
    director=await jsonResponse(DIRECTOR_PROMPT,context,engine,usage);
+   // Smaller models honour this schema inconsistently: the same request can
+   // come back with the events array populated or missing entirely, and a turn
+   // with no events is silence the participant reads as being ignored. One
+   // retry costs a call; a dead turn costs the person their question.
+   if(!Array.isArray(director?.events))director.events=[];
+   if(director.events.length===0&&action.characterId){
+    log('director','warn','Director returned no events; retrying once',{provider:engine.provider,model:engine.model});
+    const second=await jsonResponse(DIRECTOR_PROMPT,{...context,
+     runtimeDirective:`${context.runtimeDirective} The previous attempt returned an empty events array, which leaves the participant staring at silence. You MUST return at least one event in "events": a chat message from the target character answering them.`
+    },engine,usage) as DirectorResult;
+    if(Array.isArray(second?.events)&&second.events.length){
+     director=second;
+     log('director','ok','Retry produced events',{eventCount:second.events.length});
+    }else{
+     log('director','error','Retry also returned no events; the turn will show as silence',{});
+    }
+   }
    log('director','ok','Director returned',{summary:director.summary,clockAdvance:director.clock_advance_minutes,eventCount:director.events?.length||0,eventChannels:(director.events||[]).map((e:any)=>e.channel)});
    const chars=(world.characters||[]) as any[];
    director.events=normalizeEvents(director.events||[],chars,action.characterId);
@@ -192,7 +215,9 @@ export async function POST(req:Request){
 
    const artifactNotices:Array<Omit<WorldEvent,'id'|'at'>>=(director.events||[]).filter((e:any)=>e.channel==='files').flatMap((file:any)=>{
     const name=String(file.subject||'Documento');
-    const alreadyNotifies=(director.events||[]).some((e:any)=>e.channel==='chat'&&/arquivos|files/i.test(String(e.body||''))&&String(e.body||'').toLowerCase().includes(name.toLowerCase()));
+    // Only an actual availability claim replaces the notice. A promise to send
+    // the document later leaves the participant with nothing to act on.
+    const alreadyNotifies=(director.events||[]).some((e:any)=>e.channel==='chat'&&ANNOUNCES_AVAILABILITY.test(String(e.body||''))&&String(e.body||'').toLowerCase().includes(name.toLowerCase()));
     if(alreadyNotifies)return [];
     const senderCharacter=chars.find((c:any)=>c.id===file.characterId);
     const sender=senderCharacter?String(senderCharacter.name):String(file.sender||'Equipe');
@@ -211,7 +236,7 @@ export async function POST(req:Request){
      if(event.channel!=='chat')continue;
      // Only an availability claim has to wait. "Vou colocar em Arquivos" is a
      // promise and should stay immediate; "já está disponível" is the lie.
-     if(!/(j[áa]\s+est[áa]\s+dispon[íi]vel|dispon[íi]vel em arquivos|est[áa]\s+em arquivos)/i.test(String(event.body||'')))continue;
+     if(!ANNOUNCES_AVAILABILITY.test(String(event.body||'')))continue;
      const current=Number(event.delay_minutes)||0;
      if(current<earliestFile){
       log('causality','warn','Delayed an availability notice to match its artifact',{from:current,to:earliestFile,body:String(event.body||'').slice(0,120)});
