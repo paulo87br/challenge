@@ -21,6 +21,7 @@ export async function POST(req:Request){
    characters:Array.isArray(body.characters)?body.characters:[],
    artifacts:Array.isArray(body.artifacts)?body.artifacts:[],
    knowledge:body.knowledge&&typeof body.knowledge==='object'?body.knowledge:{},
+   competencies:Array.isArray(body.competencies)?body.competencies.filter((c:any)=>c?.code&&c?.name):[],
    updated_by:user.id,updated_at:new Date().toISOString()
   };
   if(!row.title||!row.seat_role)return NextResponse.json({error:'invalid',detail:'Título e assento são obrigatórios.'},{status:400});
@@ -32,11 +33,11 @@ export async function POST(req:Request){
   // instructor is told exactly what was dropped rather than left guessing.
   const missing=/column .* does not exist|could not find the '.*' column/i.test(error.message);
   if(!missing)throw new Error(error.message);
-  const{provider,model,characters,artifacts,knowledge,...base}=row;
+  const{provider,model,characters,artifacts,knowledge,competencies,...base}=row;
   const retry=await supabase.from('challenge_scenarios').upsert(base,{onConflict:'key'});
   if(retry.error)throw new Error(retry.error.message);
   return NextResponse.json({saved:true,partial:true,
-   detail:'Motor e personas não foram salvos: rode as migrações 004 e 005 no Supabase.'});
+   detail:'Motor, personas e competências não foram salvos: rode as migrações pendentes no Supabase.'});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
   console.error('scenario_save_error',message);

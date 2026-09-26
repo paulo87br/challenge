@@ -4,9 +4,9 @@ export async function POST(){
  try{
   const bundle=await restartSession();
   if(!bundle)return NextResponse.json({configured:false});
-  const{provider,model,artifacts,duration_minutes}=bundle.scenario;
+  const{provider,model,artifacts,competencies,duration_minutes}=bundle.scenario;
   return NextResponse.json({configured:true,session:bundle.session,
-   engine:{provider,model},artifacts:artifacts||[],durationMinutes:duration_minutes});
+   engine:{provider,model},artifacts:artifacts||[],competencies:competencies||[],durationMinutes:duration_minutes});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
   console.error('session_restart_error',message);

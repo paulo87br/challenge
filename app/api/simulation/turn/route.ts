@@ -61,10 +61,11 @@ export async function POST(req:Request){
  };
  try{
   log('request','info','Turn received',{requestId});
-  const{world,action,sessionId,engine:requested,artifacts:requestedArtifacts}=await req.json();
+  const{world,action,sessionId,engine:requested,artifacts:requestedArtifacts,competencies:requestedCompetencies}=await req.json();
   const engine={provider:isProvider(requested?.provider)?requested.provider:DEFAULT_PROVIDER,
    model:String(requested?.model||'')||defaultModel(isProvider(requested?.provider)?requested.provider:DEFAULT_PROVIDER)};
   const artifacts:ScenarioArtifact[]=Array.isArray(requestedArtifacts)?requestedArtifacts:[];
+  const competencies:Array<{code:string;name:string;definition:string}>=Array.isArray((await Promise.resolve(requestedCompetencies)))?requestedCompetencies:[];
   const usage:Usage={inputTokens:0,outputTokens:0,calls:0};
   if(!world||!action)return NextResponse.json({error:'world_and_action_required'},{status:400});
   const target=action.characterId?world.characters?.find((c:any)=>c.id===action.characterId):null;
@@ -87,7 +88,7 @@ export async function POST(req:Request){
   // while the Director and the mention cascade are still talking to the model.
   log('observer','info','Observer started alongside Director');
   let observerError='';
-  const observerPromise=jsonResponse(OBSERVER_PROMPT,{seat:world.seat,temperature:world.temperature,targetCharacter:target,recentTelemetry:[...(world.telemetry||[]).slice(-12),action]},engine,usage)
+  const observerPromise=jsonResponse(OBSERVER_PROMPT,{competencyFramework:competencies,seat:world.seat,temperature:world.temperature,targetCharacter:target,recentTelemetry:[...(world.telemetry||[]).slice(-12),action]},engine,usage)
    .then(result=>result as ObserverResult)
    .catch(error=>{observerError=error instanceof Error?error.message:String(error);console.error('observer_generation_error',observerError);return null});
 
@@ -251,7 +252,20 @@ export async function POST(req:Request){
    log('director','error','Director pipeline failed',{message,elapsedMs:Date.now()-startedAt});
    return NextResponse.json({error:'director_generation_failed',detail:message,model:engine.model,provider:engine.provider,requestId,logs},{status:502});
   }
-  const observer=await observerPromise;
+  let observer=await observerPromise;
+  if(observer&&competencies.length){
+   // The model still drifts -- "Information Seeking" for busca_de_informacao.
+   // Anything that does not land on a code is dropped rather than stored as a
+   // bucket of one, which is what made the panel show a competency twice.
+   const canonical=new Map(competencies.flatMap(c=>[[fold(c.code),c.code],[fold(c.name),c.code]]));
+   const kept:typeof observer.signals=[];const dropped:string[]=[];
+   for(const signal of observer.signals||[]){
+    const code=canonical.get(fold(String(signal.competency||'')));
+    if(code)kept.push({...signal,competency:code});else dropped.push(String(signal.competency));
+   }
+   if(dropped.length)log('observer','warn','Signals outside the competency framework were dropped',{dropped,kept:kept.length});
+   observer={...observer,signals:kept};
+  }
   log('observer',observer?'ok':'warn',observer?'Observer returned':'Observer failed; turn continues without evidence',{signals:observer?.signals?.length||0,uncovered:observer?.uncovered_areas?.length||0,competencies:[...new Set((observer?.signals||[]).map(signal=>signal.competency))],error:observerError||undefined});
   const durationMs=Date.now()-startedAt;
   const diagnostic=buildDiagnostic(director,action,world.characters||[],durationMs,observer);

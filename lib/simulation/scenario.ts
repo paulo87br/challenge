@@ -1,4 +1,4 @@
-import type{Character,Temperature,WorldState}from'./types';
+import type{Character,Competency,Temperature,WorldState}from'./types';
 import{initialWorld}from'./runtime';
 
 // What the Studio can author today. Characters and their knowledge perimeter
@@ -13,6 +13,9 @@ export type ScenarioConfig={
  characters:Character[];
  artifacts:Array<{name:string;ownerId:string;body:string;keywords:string[]}>;
  knowledge:Record<string,unknown>;
+ // The instrument. The Observer may only label evidence with a code from here,
+ // so signals from different turns land in the same bucket.
+ competencies:Competency[];
 };
 
 export const defaultScenario:ScenarioConfig={
@@ -20,7 +23,7 @@ export const defaultScenario:ScenarioConfig={
  mission:'conduza a decisão sobre a entrada do assistente de IA em produção.',
  world_description:'Empresa de médio porte preparando um assistente de IA generativa para produção. Existe pressão executiva, documentação incompleta e sinais de uso de dados reais no piloto.',
  temperature:initialWorld.temperature,duration_minutes:30,provider:'openai',model:'gpt-5.6',
- characters:[],artifacts:[],knowledge:{}
+ characters:[],artifacts:[],knowledge:{},competencies:[]
 };
 
 // A new world starts from the authored configuration. Existing sessions keep

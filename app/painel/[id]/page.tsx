@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
-import{NoAccess}from'../no-access';
+import{NoAccess}from'../no-access';import{buildProfile,profileSummary}from'@/lib/simulation/profile';
+import{defaultScenario}from'@/lib/simulation/scenario';
 
 export const dynamic='force-dynamic';
 
@@ -31,8 +32,13 @@ export default async function SessionDetail({params}:{params:{id:string}}){
   .map((event:any)=>({at:event.at,kind:'mundo',who:event.sender,channel:event.channel,text:event.subject?`${event.subject} — ${event.body}`:event.body}));
  const actions=(telemetry||[]).map(entry=>({at:entry.simulated_minute??0,kind:'participante',who:'Você',channel:entry.channel,text:entry.body||entry.action}));
  const replay=[...worldEvents,...actions].sort((a,b)=>a.at-b.at);
- const byCompetency=new Map<string,any[]>();
- for(const signal of evidence||[]){const list=byCompetency.get(signal.competency)||[];list.push(signal);byCompetency.set(signal.competency,list)}
+ // The framework the session was played under, not today's -- editing the
+ // Studio must not relabel evidence that was already collected.
+ const{data:scenarioRow}=await supabase.from('challenge_scenarios').select('competencies').eq('key',session.scenario_key||'atlas').maybeSingle();
+ const framework=(scenarioRow?.competencies?.length?scenarioRow.competencies:defaultScenario.competencies) as any[];
+ const profile=buildProfile(framework,(evidence||[]) as any[]);
+ const summary=profileSummary(profile);
+ const orphans=(evidence||[]).filter(signal=>!framework.some((c:any)=>c.code===signal.competency));
 
  return <main className="painel">
   <header className="painel-head">
@@ -44,16 +50,40 @@ export default async function SessionDetail({params}:{params:{id:string}}){
   {debrief&&<section className="panel"><div className="eyebrow">DEBRIEF ENTREGUE À PESSOA</div><h2>{debrief.headline}</h2>
    {String(debrief.narrative||'').split('\n').filter(Boolean).map((p:string,i:number)=><p key={i}>{p}</p>)}</section>}
 
-  <section className="panel"><h2>Evidência por competência</h2>
-   <p className="muted">Observação comportamental com força e confiança declaradas. Ausência de sinal não é sinal negativo.</p>
-   {byCompetency.size===0&&<p className="muted">Nenhuma evidência registrada nesta sessão.</p>}
-   {[...byCompetency.entries()].map(([competency,signals])=><div className="evidence-group" key={competency}>
-    <h3>{competency} <span className="tag">{signals.length}</span></h3>
-    {signals.map(signal=><div className={'evidence-row polarity-'+signal.polarity} key={signal.id}>
-     <b>{signal.behavior}</b>
-     <span>{signal.evidence}</span>
-     <small className="muted">força {Number(signal.strength).toFixed(2)} · confiança {Number(signal.confidence).toFixed(2)}{signal.corroboration_required?' · precisa de corroboração':''}</small>
-    </div>)}
+  <section className="panel"><h2>Perfil de evidência</h2>
+   <p className="muted">Quanto cada competência reuniu, de que natureza e com que confiança. Não há nota, nível nem ordenação de pessoas — ausência de sinal diz respeito ao caminho que a sessão tomou.</p>
+   <div className="profile-summary">
+    <div><b>{summary.touched}</b><small>de {summary.total} competências tocadas</small></div>
+    <div><b>{summary.signals}</b><small>sinais no total</small></div>
+    <div><b>{summary.risks}</b><small>sinais de risco</small></div>
+    <div><b>{summary.needsCorroboration}</b><small>pedem corroboração</small></div>
+   </div>
+   {orphans.length>0&&<p className="muted">{orphans.length} sinal(is) fora da lista de competências deste cenário foram ignorados no perfil.</p>}
+   <div className="profile-list">{profile.map(entry=><div className={'profile-row '+(entry.signals?'':'untouched')} key={entry.code}>
+    <div className="profile-name"><b>{entry.name}</b><small>{entry.definition}</small></div>
+    <div className="profile-bars">
+     {entry.signals===0&&<span className="muted">sem evidência nesta sessão</span>}
+     {entry.signals>0&&<>
+      <span className="profile-count">{entry.signals} sinal(is)</span>
+      <span className="profile-polarity">
+       {entry.positive>0&&<span className="dot positive" title={`${entry.positive} positivo(s)`}>{entry.positive}</span>}
+       {entry.neutral>0&&<span className="dot neutral" title={`${entry.neutral} neutro(s)`}>{entry.neutral}</span>}
+       {entry.risk>0&&<span className="dot risk" title={`${entry.risk} de risco`}>{entry.risk}</span>}
+      </span>
+      <span className="muted">confiança média {entry.meanConfidence.toFixed(2)}{entry.needsCorroboration?` · ${entry.needsCorroboration} pede corroboração`:''}</span>
+     </>}
+    </div>
+    {entry.behaviors.length>0&&<ul className="profile-behaviors">{entry.behaviors.map((behavior,i)=><li key={i}>{behavior}</li>)}</ul>}
+   </div>)}</div>
+  </section>
+
+  <section className="panel"><h2>Evidência bruta</h2>
+   <p className="muted">Cada sinal como o Observer registrou, com força e confiança declaradas.</p>
+   {(evidence||[]).length===0&&<p className="muted">Nenhuma evidência registrada nesta sessão.</p>}
+   {(evidence||[]).map(signal=><div className={'evidence-row polarity-'+signal.polarity} key={signal.id}>
+    <b>{signal.behavior}</b>
+    <span>{signal.evidence}</span>
+    <small className="muted">{framework.find((c:any)=>c.code===signal.competency)?.name||signal.competency} · força {Number(signal.strength).toFixed(2)} · confiança {Number(signal.confidence).toFixed(2)}{signal.corroboration_required?' · precisa de corroboração':''}</small>
    </div>)}
   </section>
 
