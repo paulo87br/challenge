@@ -1,6 +1,6 @@
 'use client';
 import{useState}from'react';import{Save}from'lucide-react';
-import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
+import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import{ArtifactEditor}from'./artifact-editor';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
 
 export function ScenarioForm({initial,defaultCast}:{initial:ScenarioConfig;defaultCast:Character[]}){
  const[form,setForm]=useState<ScenarioConfig>(initial);
@@ -61,6 +61,8 @@ export function ScenarioForm({initial,defaultCast}:{initial:ScenarioConfig;defau
   <EnginePicker provider={(form.provider||'openai') as ProviderId} model={form.model||''} onChange={next=>set(next as Partial<ScenarioConfig>)}/>
 
   <PersonaEditor characters={cast} usingDefaults={usingDefaults} onChange={next=>set({characters:next})}/>
+
+  <ArtifactEditor artifacts={form.artifacts||[]} characters={cast} onChange={next=>set({artifacts:next})}/>
 
   <div className="studio-save">
    {state==='error'&&<div className="runtime-error">{message}</div>}
