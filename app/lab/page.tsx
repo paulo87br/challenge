@@ -37,7 +37,32 @@ useEffect(()=>{(async()=>{
 })()},[]);
 useEffect(()=>{const stored=loadSession();if(stored){setWorld(stored.world);setEvidence(stored.evidence);setAssistantMessages(stored.assistant);setUploads(stored.uploads);setDebrief(stored.debrief)}setStartedAt(stored?.startedAt||Date.now());setHydrated(true)},[]);
 useEffect(()=>{if(hydrated)saveSession({world,evidence,assistant:assistantMessages,uploads,debrief,startedAt,savedAt:Date.now()})},[hydrated,world,evidence,assistantMessages,uploads,debrief]);
-function restart(){clearSession();setStartedAt(Date.now());setWorld(initialWorld);setEvidence([]);setAssistantMessages([]);setUploads([]);setDebrief(null);setDebriefError('');setEngineLogs([]);setTurnDiagnostics([]);setRuntimeError('');setSeenFiles({});setAssistantAnswer('')}
+async function restart(){
+ if(busy)return;
+ if(!window.confirm('Recomeçar apaga esta sessão e começa um mundo novo. A sessão atual fica registrada para o instrutor. Continuar?'))return;
+ setBusy(true);
+ // Reset every screen first so the change is visible even if the server is
+ // unreachable; then ask the server for a fresh session built from the
+ // authored scenario, which is what "do zero" has to mean now.
+ clearSession();setStartedAt(Date.now());setEvidence([]);setAssistantMessages([]);setUploads([]);
+ setDebrief(null);setDebriefError('');setEngineLogs([]);setTurnDiagnostics([]);setRuntimeError('');setSeenFiles({});
+ setWorld(initialWorld);
+ try{
+  const r=await fetch('/api/session/restart',{method:'POST'});
+  const data=await r.json();
+  if(!r.ok)throw new Error(data.detail||data.error||`HTTP ${r.status}`);
+  if(data.configured&&data.session){
+   setSessionId(data.session.id);
+   if(data.session.world_state?.scenarioId)setWorld(data.session.world_state);
+   if(data.engine)setEngine(data.engine);
+   if(Array.isArray(data.artifacts))setArtifacts(data.artifacts);
+   if(data.durationMinutes)setDurationMinutes(Number(data.durationMinutes)||0);
+   addClientLog('session','ok','Sessão reiniciada no servidor',{sessionId:data.session.id});
+  }
+ }catch(error){
+  addClientLog('session','warn','Reinício apenas local; o servidor não respondeu',{error:String(error)});
+ }finally{setBusy(false);setTab('mail')}
+}
 function addClientLog(stage:string,status:EngineLog['status'],message:string,meta?:Record<string,unknown>){setEngineLogs(prev=>[...prev,{id:crypto.randomUUID(),at:Date.now(),stage,status,message,meta}].slice(-150))}
 async function act(channel:'mail'|'chat',action:string,characterId?:string,extra?:Record<string,unknown>){if(!text.trim()||busy)return;setBusy(true);addClientLog('client','info','Enviando ação ao motor',{channel,action,characterId,text:text.trim().slice(0,180)});setRuntimeError('');const sentText=text.trim();const mailSubject=subject||opened?.subject||'Sem assunto';const telemetry={action,channel,text:sentText,characterId,metadata:{day:world.day,targetCharacterId:characterId,subject:mailSubject,mentionedCharacterIds:mentionedCharacterIds(sentText,world.characters),...extra}};const next=recordTelemetry(world,telemetry);const mentions=mentionedCharacterIds(sentText,world.characters);next.events=[...next.events,{id:crypto.randomUUID(),channel,sender:'Você',recipientCharacterId:characterId,mentionedCharacterIds:mentions,subject:channel==='mail'?mailSubject:undefined,body:sentText,urgency:0,visible:true,at:world.minute}];setWorld(next);setText('');setSubject('');try{const r=await fetch('/api/simulation/turn',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({world:next,action:next.telemetry.at(-1),sessionId,engine,artifacts})});const data=await r.json();if(Array.isArray(data.logs))setEngineLogs(prev=>[...prev,...data.logs].slice(-200));if(data.diagnostic)setTurnDiagnostics(prev=>[...prev,data.diagnostic].slice(-30));if(Array.isArray(data.observer?.signals))setEvidence(prev=>[...prev,...data.observer.signals]);if(data.requestId)addClientLog('request','info','Request ID recebido',{requestId:data.requestId});if(!r.ok)throw new Error(data.detail||data.error||`HTTP ${r.status}`);if(data.engine!=='llm')throw new Error('A resposta não veio do motor LLM.');addClientLog('client','ok','Motor respondeu e o Director será aplicado',{eventCount:data.director?.events?.length||0});setWorld(s=>{const advanced=applyDirector(s,data.director);syncSession({world:advanced});return advanced});}catch(error){addClientLog('client','error','Falha ao processar ação',{error:String(error)});setWorld(next);setRuntimeError(error instanceof Error?error.message:'Falha desconhecida no motor LLM.')}finally{setBusy(false)}}
 async function ask(question:string){

@@ -137,11 +137,22 @@
 .provider-chip.active{background:#12b89a;color:#fff;box-shadow:3px 3px 0 #211a38}
 .provider-note{font-size:12px;margin-bottom:6px}
 .provider-note code{background:#f5f1fa;border-radius:6px;padding:2px 6px;font-size:11px}
-.persona-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;margin-top:16px}
-.persona-card{border:2px solid #e7dfef;border-radius:16px;padding:15px;background:#fffdf8}
-.persona-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.persona-remove{padding:6px 9px!important;box-shadow:2px 2px 0 #211a38}
-.persona-traits{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
+.persona-list{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+.persona-item{border:2px solid #e7dfef;border-radius:15px;background:#fffdf8;overflow:hidden}
+.persona-item.open{border-color:#211a38;box-shadow:4px 4px 0 #ffd166}
+.persona-row{display:flex;align-items:center;gap:8px;padding:9px 11px}
+.persona-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:11px;border:0;background:transparent;cursor:pointer;text-align:left;color:#211a38;padding:4px}
+.persona-chevron{flex:0 0 auto;color:#7b61ff;transition:transform .15s}
+.persona-item.open .persona-chevron{transform:rotate(180deg)}
+.persona-id{min-width:0;flex:1}
+.persona-id b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.persona-id small{display:block;color:#756d82;font-size:11px;margin-top:2px}
+.persona-meta{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.persona-meta .tag{font-size:10px;padding:3px 7px;border-width:1px}
+.persona-actions{display:flex;gap:6px;flex:0 0 auto}
+.persona-icon{padding:7px 9px!important;box-shadow:2px 2px 0 #211a38}
+.persona-body{padding:4px 14px 16px;border-top:1px solid #e9e2f2}
+.persona-traits{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
 .persona-traits .slider-label{font-size:11px}
-.persona-card .field-grid{grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}
-.persona-card .slider-label{font-size:12px}
+.persona-body .field-grid{margin:12px 0}
+@media(max-width:700px){.persona-meta{display:none}}

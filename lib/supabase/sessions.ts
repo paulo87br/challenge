@@ -40,6 +40,27 @@ export async function ensureSession(scenarioKey='atlas'):Promise<SessionBundle|n
  return{session:created as SessionRow,scenario};
 }
 
+// Restarting has to reach the database. Resetting only the browser left the
+// old session as the server's truth, so the next page load brought the
+// abandoned world straight back.
+export async function restartSession(scenarioKey='atlas'):Promise<SessionBundle|null>{
+ const supabase=createSupabaseServerClient();
+ if(!supabase)return null;
+ const{data:{user}}=await supabase.auth.getUser();
+ if(!user)return null;
+ // Kept, not deleted: an abandoned run is still something the instructor may
+ // want to look at, and the evidence attached to it is not the person's to erase.
+ await supabase.from('challenge_sessions')
+  .update({status:'abandoned',completed_at:new Date().toISOString()})
+  .eq('user_id',user.id).eq('status','active');
+ const scenario=await loadScenario(supabase,scenarioKey);
+ const{data:created,error}=await supabase.from('challenge_sessions')
+  .insert({user_id:user.id,scenario_key:scenarioKey,world_state:worldFromScenario(scenario)})
+  .select('id,world_state,debrief,status').single();
+ if(error)throw new Error(error.message);
+ return{session:created as SessionRow,scenario};
+}
+
 export async function saveSessionState(sessionId:string,patch:{world?:WorldState;debrief?:Debrief|null;status?:string}){
  const supabase=createSupabaseServerClient();
  if(!supabase)return false;
