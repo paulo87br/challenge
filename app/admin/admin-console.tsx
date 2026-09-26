@@ -1,22 +1,25 @@
 'use client';
 import{useState}from'react';import Link from 'next/link';
-import{SlidersHorizontal,Users,Bug}from'lucide-react';
+import{SlidersHorizontal,Users,Bug,TriangleAlert,Check}from'lucide-react';
 import{ScenarioForm}from'./scenario-form';
 import type{ScenarioConfig}from'@/lib/simulation/scenario';import type{Character}from'@/lib/simulation/types';
 
 export type Participant={userId:string;email:string;createdAt:string;lastSignIn:string|null;
  sessionId:string|null;status:string|null;actions:number;evidence:number;risks:number;
  hasDebrief:boolean;startedAt:string|null;updatedAt:string|null};
+export type Incident={id:string;provider:string|null;model:string|null;kind:string;code:string|null;message:string|null;occurrences:number;attempts:number;firstSeenAt:string;lastSeenAt:string;label:string};
 export type TurnRow={id:string;requestId:string;createdAt:string;severity:string|null;headline:string|null;
  summary:string|null;model:string|null;provider:string|null;inputTokens:number|null;outputTokens:number|null;modelCalls:number|null;
  actionName:string|null;actionChannel:string|null;durationMs:number|null;
  email:string;logs:Array<{stage:string;status:string;message:string;meta:any}>};
 
-const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug}];
+const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug},{id:'incidentes',label:'Incidentes',Icon:TriangleAlert}];
 const when=(value:string|null)=>value?new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 
-export function AdminConsole({scenario,defaultCast,participants,turns}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[]}){
+export function AdminConsole({scenario,defaultCast,participants,turns,incidents}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[]}){
  const[tab,setTab]=useState('cenario');
+ const[resolving,setResolving]=useState('');
+ async function resolver(id:string){setResolving(id);await fetch('/api/admin/incident',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});location.reload()}
  const entered=participants.length;
  const exercised=participants.filter(p=>p.actions>0).length;
  const finished=participants.filter(p=>p.hasDebrief).length;
@@ -35,7 +38,7 @@ export function AdminConsole({scenario,defaultCast,participants,turns}:{scenario
   </div>
 
   <nav className="console-tabs">{TABS.map(({id,label,Icon})=>
-   <button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={17}/>{label}</button>)}</nav>
+   <button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={17}/>{label}{id==='incidentes'&&incidents.length>0&&<b className="tab-badge">{incidents.length}</b>}</button>)}</nav>
 
   {tab==='cenario'&&<ScenarioForm initial={scenario} defaultCast={defaultCast}/>}
 
@@ -58,6 +61,20 @@ export function AdminConsole({scenario,defaultCast,participants,turns}:{scenario
      </span>
     </div>)}
    </div>}
+  </section>}
+
+  {tab==='incidentes'&&<section className="panel">
+   <h2>Incidentes</h2>
+   <p className="muted">Falhas que não se resolvem esperando: chave errada, modelo inexistente, cota esgotada. Enquanto uma delas estiver aberta, os turnos dos participantes morrem em vez de entrar na fila.</p>
+   {incidents.length===0&&<p className="muted">Nenhum incidente registrado. Falhas passageiras — limite de taxa, rede, provedor lento — são tratadas sozinhas e não aparecem aqui.</p>}
+   {incidents.map(incident=><div className="incident" key={incident.id}>
+    <div className="incident-head">
+     <span className="diagnostic-pill error">{incident.label}</span>
+     <span className="muted">{incident.provider}/{incident.model} · {incident.occurrences}× · desde {when(incident.firstSeenAt)}</span>
+     <button className="btn" disabled={resolving===incident.id} onClick={()=>resolver(incident.id)}><Check size={15}/>{resolving===incident.id?'…':'Resolvido'}</button>
+    </div>
+    <pre className="incident-message">{incident.message}</pre>
+   </div>)}
   </section>}
 
   {tab==='motor'&&<section className="debug-shell">

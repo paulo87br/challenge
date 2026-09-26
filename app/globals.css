@@ -181,3 +181,12 @@
 .dot.risk{background:#ff4f91}
 .profile-behaviors{margin:9px 0 0;padding-left:19px;font-size:12px;color:#625a70;line-height:1.6}
 @media(max-width:800px){.profile-summary{grid-template-columns:1fr 1fr}}
+.queue-notice{display:flex;align-items:center;gap:10px;margin-top:10px;border:2px solid #211a38;background:#fff7df;border-radius:14px;padding:11px 14px;font-size:13px;font-weight:700;box-shadow:3px 3px 0 #ffd166}
+.queue-spinner{width:15px;height:15px;flex:0 0 auto;border:3px solid #ffd166;border-top-color:#211a38;border-radius:50%;animation:queue-spin 1s linear infinite}
+@keyframes queue-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.queue-spinner{animation:none}}
+.tab-badge{margin-left:7px;min-width:19px;height:19px;padding:0 6px;border-radius:999px;background:#ff4f91;color:#fff;display:inline-grid;place-items:center;font-size:10px}
+.incident{border:2px solid #f0b8c2;background:#fff6f7;border-radius:14px;padding:13px;margin-top:11px}
+.incident-head{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.incident-head .btn{margin-left:auto;padding:6px 11px;box-shadow:2px 2px 0 #211a38}
+.incident-message{margin:10px 0 0;padding:9px;border-radius:9px;background:#fff;white-space:pre-wrap;font-size:11px;color:#514a65;max-height:130px;overflow:auto}

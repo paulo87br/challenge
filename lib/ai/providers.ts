@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import{classify}from'./errors';
 
 // Four providers behind one call. Three of them speak the OpenAI chat API and
 // differ only by base URL; Anthropic has its own SDK and a different request
@@ -50,7 +51,34 @@ function keyFor(provider:ProviderId){
 // is what silently broke every Observer call for weeks.
 const JSON_CONTRACT='\n\nOUTPUT CONTRACT: Return valid JSON only. The response must be a single JSON object, with no prose and no markdown fences around it.';
 
-export async function complete({provider,model,instructions,input,json=true,maxTokens=16000}:{
+const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
+
+// A transient failure inside a turn is retried here rather than thrown at the
+// participant. Blocking failures are rethrown immediately -- waiting does not
+// fix a bad key, and every retry costs the person another few seconds.
+export async function complete(params:{
+ provider:ProviderId;model:string;instructions:string;input:string;json?:boolean;maxTokens?:number;attempts?:number;
+ onRetry?:(info:{attempt:number;code:string;waitMs:number;message:string})=>void;
+}):Promise<Completion>{
+ const attempts=Math.max(1,params.attempts??3);
+ let last:unknown;
+ for(let attempt=1;attempt<=attempts;attempt++){
+  try{return await callProvider(params)}
+  catch(error){
+   last=error;
+   const failure=classify(error);
+   if(failure.kind==='blocking'||attempt===attempts)throw error;
+   // Honour the provider's own retry-after when it gives one; otherwise back
+   // off geometrically. Capped so a turn cannot hang past the function budget.
+   const waitMs=Math.min(8000,failure.retryAfterMs||Math.round(600*Math.pow(2,attempt-1)));
+   params.onRetry?.({attempt,code:failure.code,waitMs,message:failure.message.slice(0,160)});
+   await sleep(waitMs);
+  }
+ }
+ throw last;
+}
+
+async function callProvider({provider,model,instructions,input,json=true,maxTokens=16000}:{
  provider:ProviderId;model:string;instructions:string;input:string;json?:boolean;maxTokens?:number;
 }):Promise<Completion>{
  const config=PROVIDERS[provider];

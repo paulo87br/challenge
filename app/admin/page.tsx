@@ -1,7 +1,7 @@
 import{redirect}from'next/navigation';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';import{initialWorld}from'@/lib/simulation/runtime';
-import{AdminConsole,type Participant,type TurnRow}from'./admin-console';
+import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{FAILURE_LABELS}from'@/lib/ai/errors';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'Studio · Challenge'};
@@ -25,6 +25,7 @@ export default async function Admin(){
   supabase.from('challenge_telemetry').select('session_id'),
   supabase.from('challenge_turns').select('*').order('created_at',{ascending:false}).limit(40)
  ]);
+ const{data:incidentRows}=await supabase.from('challenge_incidents').select('*').is('resolved_at',null).order('last_seen_at',{ascending:false}).limit(50);
  // Every query above tolerates a missing table: 003 may not be applied yet, and
  // the Studio has to open anyway. An empty .in() is also an error, not a no-op.
  const turnIds=(turnRows||[]).map(turn=>turn.id);
@@ -57,5 +58,10 @@ export default async function Admin(){
   logs:(logRows||[]).filter(log=>log.turn_id===turn.id).map(log=>({stage:log.stage,status:log.status,message:log.message,meta:log.meta}))
  }));
 
- return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns}/>;
+ const incidents:Incident[]=(incidentRows||[]).map(row=>({
+  id:row.id,provider:row.provider,model:row.model,kind:row.kind,code:row.code,message:row.message,
+  occurrences:row.occurrences,attempts:row.attempts,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at,
+  label:FAILURE_LABELS[row.code as string]||row.code||'Falha'}));
+
+ return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents}/>;
 }

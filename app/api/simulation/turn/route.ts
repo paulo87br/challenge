@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider,type ProviderId}from'@/lib/ai/providers';import{artifactFor,fold,scenarioArtifacts,type ScenarioArtifact}from'@/lib/simulation/scenario-world';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows}from'@/lib/supabase/sessions';
+import{NextResponse}from'next/server';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider,type ProviderId}from'@/lib/ai/providers';import{artifactFor,fold,scenarioArtifacts,type ScenarioArtifact}from'@/lib/simulation/scenario-world';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows}from'@/lib/supabase/sessions';import{claimTurn,settleTurn,recordIncident,ESTIMATED_TOKENS_PER_TURN}from'@/lib/queue/rate';import{classify,FAILURE_LABELS}from'@/lib/ai/errors';
 
 type Usage={inputTokens:number;outputTokens:number;calls:number};
 
@@ -8,8 +8,10 @@ type Usage={inputTokens:number;outputTokens:number;calls:number};
 // or a healthy turn gets flagged red.
 const ANNOUNCES_AVAILABILITY=/(j[áa]\s+est[áa]\s+dispon[íi]vel|dispon[íi]vel em arquivos|est[áa]\s+em arquivos|arquivo dispon[íi]vel)/i;
 
-async function jsonResponse(instructions:string,input:unknown,engine:{provider:ProviderId;model:string},usage:Usage){
- const result=await complete({provider:engine.provider,model:engine.model,instructions,input:JSON.stringify(input)});
+async function jsonResponse(instructions:string,input:unknown,engine:{provider:ProviderId;model:string},usage:Usage,
+ onRetry?:(info:{attempt:number;code:string;waitMs:number;message:string})=>void){
+ const result=await complete({provider:engine.provider,model:engine.model,instructions,input:JSON.stringify(input),
+  onRetry:info=>onRetry?.(info)});
  usage.inputTokens+=result.usage.inputTokens;
  usage.outputTokens+=result.usage.outputTokens;
  usage.calls+=1;
@@ -69,6 +71,18 @@ export async function POST(req:Request){
   const usage:Usage={inputTokens:0,outputTokens:0,calls:0};
   if(!world||!action)return NextResponse.json({error:'world_and_action_required'},{status:400});
   const target=action.characterId?world.characters?.find((c:any)=>c.id===action.characterId):null;
+  // Admission control before anything is spent. Without this, two people in the
+  // same minute on Groq's free tier means one of them gets a 502.
+  const claim=await claimTurn(sessionId?String(sessionId):null,engine.provider,ESTIMATED_TOKENS_PER_TURN);
+  if(!claim.granted){
+   log('queue','info','Turn queued',{position:claim.position,waitMs:claim.waitMs,available:Math.round(claim.available)});
+   return NextResponse.json({queued:true,position:claim.position,waitMs:claim.waitMs,
+    ahead:claim.position,requestId,
+    message:claim.position>0
+     ? `Há ${claim.position} pessoa(s) na frente. Sua vez em cerca de ${Math.max(1,Math.round(claim.waitMs/60000))} min.`
+     : `Aguardando capacidade do modelo. Sua vez em cerca de ${Math.max(1,Math.round(claim.waitMs/1000))}s.`},{status:202});
+  }
+  log('queue','ok','Capacity granted',{ticket:claim.ticketId,available:Math.round(claim.available)});
   log('context','ok','Context assembled',{channel:action.channel,action:action.action,targetCharacterId:action.characterId,target:target?.name,events:world.events?.length||0,telemetry:world.telemetry?.length||0});
   const conversationHistory=(world.events||[]).filter((e:any)=>{
    if(action.channel==='chat')return e.channel==='chat'&&(e.characterId===action.characterId||e.recipientCharacterId===action.characterId);
@@ -95,7 +109,8 @@ export async function POST(req:Request){
   let director:DirectorResult;
   try{
    log('director','info','Calling Director',{provider:engine.provider,model:engine.model,history:conversationHistory.length});
-   director=await jsonResponse(DIRECTOR_PROMPT,context,engine,usage);
+   director=await jsonResponse(DIRECTOR_PROMPT,context,engine,usage,
+    info=>log('retry','warn','Chamada repetida após falha transitória',info));
    // Smaller models honour this schema inconsistently: the same request can
    // come back with the events array populated or missing entirely, and a turn
    // with no events is silence the participant reads as being ignored. One
@@ -248,9 +263,26 @@ export async function POST(req:Request){
    log('artifact','ok','Artifact pipeline completed',{files:director.events.filter((e:any)=>e.channel==='files').map((e:any)=>({subject:e.subject,delay:e.delay_minutes,at:'assigned_on_apply'})),notifications:artifactNotices.map((e:any)=>({subject:e.subject,delay:e.delay_minutes}))});
   }catch(error){
    const message=error instanceof Error?error.message:String(error);
-   console.error('director_generation_error',{engine,message});
-   log('director','error','Director pipeline failed',{message,elapsedMs:Date.now()-startedAt});
-   return NextResponse.json({error:'director_generation_failed',detail:message,model:engine.model,provider:engine.provider,requestId,logs},{status:502});
+   const failure=classify(error);
+   await settleTurn(claim.ticketId,engine.provider,ESTIMATED_TOKENS_PER_TURN,usage.inputTokens+usage.outputTokens);
+   console.error('director_generation_error',{engine,code:failure.code,message});
+   log('director','error','Director pipeline failed',{code:failure.code,kind:failure.kind,message,elapsedMs:Date.now()-startedAt});
+
+   if(failure.kind==='transient'){
+    // Retries inside the call are already spent; hand the turn back to the
+    // queue instead of losing it. The participant sees waiting, not an error.
+    const waitMs=Math.max(3000,failure.retryAfterMs||15000);
+    log('queue','warn','Transient failure; returning the turn to the queue',{code:failure.code,waitMs});
+    return NextResponse.json({queued:true,position:0,waitMs,requestId,transient:failure.code,
+     message:`O provedor está sobrecarregado (${FAILURE_LABELS[failure.code]||failure.code}). Nova tentativa em ${Math.max(1,Math.round(waitMs/1000))}s.`},{status:202});
+   }
+
+   await recordIncident({sessionId:sessionId?String(sessionId):null,provider:engine.provider,model:engine.model,
+    failure,kind:'blocking',attempts:usage.calls||1});
+   log('incident','error','Blocking failure recorded as an incident',{code:failure.code});
+   return NextResponse.json({error:'director_generation_failed',blocked:true,code:failure.code,
+    label:FAILURE_LABELS[failure.code]||failure.code,detail:message,
+    model:engine.model,provider:engine.provider,requestId,logs},{status:502});
   }
   let observer=await observerPromise;
   if(observer&&competencies.length){
@@ -273,6 +305,8 @@ export async function POST(req:Request){
   log('request','ok','Turn completed',{requestId,elapsedMs:durationMs,totalEvents:director.events?.length||0,provider:engine.provider,model:engine.model,tokens:usage});
   // Local history, mirroring the shape the Supabase tables will have. Best
   // effort: a read-only filesystem must not cost the participant their turn.
+  await settleTurn(claim.ticketId,engine.provider,ESTIMATED_TOKENS_PER_TURN,usage.inputTokens+usage.outputTokens);
+  log('queue','ok','Ticket settled',{estimated:ESTIMATED_TOKENS_PER_TURN,actual:usage.inputTokens+usage.outputTokens});
   const stored=await recordTurn({requestId,durationMs,model:engine.model,action,diagnostic,logs,events:(director.events||[]) as any[],observer});
   // Evidence goes up with the service role: the policies give the participant
   // no insert on it, so the assessment record cannot be forged from the browser.
