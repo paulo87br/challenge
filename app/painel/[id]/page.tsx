@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
-import{NoAccess}from'../no-access';import{buildProfile,profileSummary}from'@/lib/simulation/profile';
+import{NoAccess}from'../no-access';import{PrintButton}from'../print-button';import{buildProfile,profileSummary}from'@/lib/simulation/profile';
 import{defaultScenario}from'@/lib/simulation/scenario';
 
 export const dynamic='force-dynamic';
@@ -39,13 +39,22 @@ export default async function SessionDetail({params}:{params:{id:string}}){
  const profile=buildProfile(framework,(evidence||[]) as any[]);
  const summary=profileSummary(profile);
  const orphans=(evidence||[]).filter(signal=>!framework.some((c:any)=>c.code===signal.competency));
+ const csv=[['competencia','comportamento','evidencia','polaridade','forca','confianca','corroboracao'].join(','),
+  ...(evidence||[]).map(signal=>[
+   framework.find((c:any)=>c.code===signal.competency)?.name||signal.competency,
+   signal.behavior,signal.evidence,signal.polarity,signal.strength,signal.confidence,
+   signal.corroboration_required?'sim':'nao'
+  ].map(cell=>`"${String(cell??'').replace(/"/g,'""')}"`).join(','))].join('\n');
 
  return <main className="painel">
-  <header className="painel-head">
+  <header className="painel-head no-print">
    <div><Link href="/painel" className="btn">← Sessões</Link>
    <h1 className="h1" style={{marginTop:14}}>{email}</h1>
    <p className="muted">{world?.title||session.scenario_key} · {(telemetry||[]).length} ações · {(evidence||[]).length} sinais de evidência</p></div>
+   <PrintButton csv={csv} filename={`challenge-${email}.csv`}/>
   </header>
+  <div className="print-only print-head"><h1>{world?.title||'Challenge'} — {email}</h1>
+   <p>{(telemetry||[]).length} ações · {(evidence||[]).length} sinais · gerado em {new Date().toLocaleString('pt-BR')}</p></div>
 
   {debrief&&<section className="panel"><div className="eyebrow">DEBRIEF ENTREGUE À PESSOA</div><h2>{debrief.headline}</h2>
    {String(debrief.narrative||'').split('\n').filter(Boolean).map((p:string,i:number)=><p key={i}>{p}</p>)}</section>}

@@ -22,6 +22,10 @@ export async function POST(req:Request){
    artifacts:Array.isArray(body.artifacts)?body.artifacts:[],
    knowledge:body.knowledge&&typeof body.knowledge==='object'?body.knowledge:{},
    competencies:Array.isArray(body.competencies)?body.competencies.filter((c:any)=>c?.code&&c?.name):[],
+   news:Array.isArray(body.news)?body.news.filter((n:any)=>n?.id):[],
+   // Voice on Groq is a switch pointing at nothing; the UI disables it and
+   // this refuses it, so a stale form cannot turn it on.
+   calls_enabled:Boolean(body.calls_enabled)&&String(body.provider||'')!=='groq',
    updated_by:user.id,updated_at:new Date().toISOString()
   };
   if(!row.title||!row.seat_role)return NextResponse.json({error:'invalid',detail:'Título e assento são obrigatórios.'},{status:400});
@@ -33,7 +37,7 @@ export async function POST(req:Request){
   // instructor is told exactly what was dropped rather than left guessing.
   const missing=/column .* does not exist|could not find the '.*' column/i.test(error.message);
   if(!missing)throw new Error(error.message);
-  const{provider,model,characters,artifacts,knowledge,competencies,...base}=row;
+  const{provider,model,characters,artifacts,knowledge,competencies,news,calls_enabled,...base}=row;
   const retry=await supabase.from('challenge_scenarios').upsert(base,{onConflict:'key'});
   if(retry.error)throw new Error(retry.error.message);
   return NextResponse.json({saved:true,partial:true,

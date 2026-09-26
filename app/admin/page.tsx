@@ -25,6 +25,7 @@ export default async function Admin(){
   supabase.from('challenge_telemetry').select('session_id'),
   supabase.from('challenge_turns').select('*').order('created_at',{ascending:false}).limit(40)
  ]);
+ const{data:limitRows}=await supabase.from('challenge_rate_limits').select('*').order('provider');
  const{data:incidentRows}=await supabase.from('challenge_incidents').select('*').is('resolved_at',null).order('last_seen_at',{ascending:false}).limit(50);
  // Every query above tolerates a missing table: 003 may not be applied yet, and
  // the Studio has to open anyway. An empty .in() is also an error, not a no-op.
@@ -63,5 +64,5 @@ export default async function Admin(){
   occurrences:row.occurrences,attempts:row.attempts,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at,
   label:FAILURE_LABELS[row.code as string]||row.code||'Falha'}));
 
- return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents}/>;
+ return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any}/>;
 }

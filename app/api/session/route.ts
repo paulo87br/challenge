@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{ensureSession}from'@/lib/supabase/sessions';
+import{NextResponse}from'next/server';import{defaultScenario}from'@/lib/simulation/scenario';import{ensureSession}from'@/lib/supabase/sessions';
 
 export async function POST(){
  try{
@@ -6,9 +6,9 @@ export async function POST(){
   if(!bundle)return NextResponse.json({configured:false});
   // The workspace needs the engine choice and the artifact list to drive a turn;
   // it never needs the rest of the authored scenario.
-  const{provider,model,artifacts,competencies,duration_minutes}=bundle.scenario;
+  const{provider,model,artifacts,competencies,news,calls_enabled,duration_minutes}=bundle.scenario;
   return NextResponse.json({configured:true,session:bundle.session,
-   engine:{provider,model},artifacts:artifacts||[],competencies:competencies||[],durationMinutes:duration_minutes});
+   engine:{provider,model},artifacts:artifacts||[],competencies:(competencies?.length?competencies:defaultScenario.competencies)||[],news:(news?.length?news:defaultScenario.news)||[],callsEnabled:Boolean(calls_enabled),durationMinutes:duration_minutes});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
   console.error('session_error',message);

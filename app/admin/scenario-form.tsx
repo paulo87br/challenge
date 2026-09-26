@@ -1,6 +1,6 @@
 'use client';
 import{useState}from'react';import{Save}from'lucide-react';
-import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import{ArtifactEditor}from'./artifact-editor';import{CompetencyEditor}from'./competency-editor';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
+import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import{ArtifactEditor}from'./artifact-editor';import{CompetencyEditor}from'./competency-editor';import{NewsEditor}from'./news-editor';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
 
 export function ScenarioForm({initial,defaultCast}:{initial:ScenarioConfig;defaultCast:Character[]}){
  const[form,setForm]=useState<ScenarioConfig>(initial);
@@ -58,13 +58,36 @@ export function ScenarioForm({initial,defaultCast}:{initial:ScenarioConfig;defau
    </div>
   </section>
 
-  <EnginePicker provider={(form.provider||'openai') as ProviderId} model={form.model||''} onChange={next=>set(next as Partial<ScenarioConfig>)}/>
+  <EnginePicker provider={(form.provider||'openai') as ProviderId} model={form.model||''}
+   onChange={next=>{
+    // Groq has no realtime voice and a free tier that a call would exhaust in
+    // minutes, so switching to it turns calls off rather than leaving a switch
+    // on that points at nothing.
+    const patch:Partial<ScenarioConfig>={...next};
+    if((next as any).provider==='groq')patch.calls_enabled=false;
+    set(patch);
+   }}/>
+
+  <section className="panel">
+   <div className="eyebrow">CHAMADAS</div>
+   <h2>Calls por voz</h2>
+   <label className="calls-toggle">
+    <input type="checkbox" checked={Boolean(form.calls_enabled)} disabled={form.provider==='groq'}
+     onChange={e=>set({calls_enabled:e.target.checked})}/>
+    <span><b>Permitir que o participante ligue para os personagens</b>
+     <small>A voz é cobrada por minuto de áudio, não por token, então a fila que protege os turnos não a governa. Ligue quando quiser que a conversa por voz faça parte do Challenge — e acompanhe o consumo por fora.</small>
+     {form.provider==='groq'&&<small><b>Indisponível no Groq:</b> não há voz em tempo real no catálogo dele, e a camada gratuita não sustentaria o áudio.</small>}
+    </span>
+   </label>
+  </section>
 
   <PersonaEditor characters={cast} usingDefaults={usingDefaults} onChange={next=>set({characters:next})}/>
 
   <ArtifactEditor artifacts={form.artifacts||[]} characters={cast} onChange={next=>set({artifacts:next})}/>
 
   <CompetencyEditor competencies={form.competencies||[]} onChange={next=>set({competencies:next})}/>
+
+  <NewsEditor news={form.news||[]} onChange={next=>set({news:next})}/>
 
   <div className="studio-save">
    {state==='error'&&<div className="runtime-error">{message}</div>}

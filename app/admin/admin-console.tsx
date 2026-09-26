@@ -1,7 +1,7 @@
 'use client';
 import{useState}from'react';import Link from 'next/link';
 import{SlidersHorizontal,Users,Bug,TriangleAlert,Check}from'lucide-react';
-import{ScenarioForm}from'./scenario-form';
+import{ScenarioForm}from'./scenario-form';import{LimitsEditor,type RateLimit}from'./limits-editor';
 import type{ScenarioConfig}from'@/lib/simulation/scenario';import type{Character}from'@/lib/simulation/types';
 
 export type Participant={userId:string;email:string;createdAt:string;lastSignIn:string|null;
@@ -16,7 +16,7 @@ export type TurnRow={id:string;requestId:string;createdAt:string;severity:string
 const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug},{id:'incidentes',label:'Incidentes',Icon:TriangleAlert}];
 const when=(value:string|null)=>value?new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 
-export function AdminConsole({scenario,defaultCast,participants,turns,incidents}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[]}){
+export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[]}){
  const[tab,setTab]=useState('cenario');
  const[resolving,setResolving]=useState('');
  async function resolver(id:string){setResolving(id);await fetch('/api/admin/incident',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});location.reload()}
@@ -77,7 +77,8 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents}
    </div>)}
   </section>}
 
-  {tab==='motor'&&<section className="debug-shell">
+  {tab==='motor'&&<><LimitsEditor limits={limits} activeProvider={scenario.provider||'openai'}/>
+   <section className="debug-shell">
    <div className="panel debug-head"><div>
     <div className="eyebrow">ENGINE DIAGNOSTICS</div><h2>Motor</h2>
     <p className="muted">Os {turns.length} turnos mais recentes de todas as sessões: contexto → Director → menções → cascata → artefatos → Observer.</p>
@@ -96,6 +97,6 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents}
      <div className="debug-message"><b>{log.message}</b>{log.meta&&<pre>{JSON.stringify(log.meta,null,2)}</pre>}</div>
     </div>)}</div>
    </details>)}
-  </section>}
+  </section></>}
  </main>;
 }
