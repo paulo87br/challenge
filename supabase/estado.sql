@@ -1,0 +1,28 @@
+-- Cole no SQL Editor do Supabase para ver quais migrações estão realmente
+-- aplicadas. Só lê; não altera nada.
+--
+-- Este projeto não tem tabela de controle de migração: a verificação é pela
+-- presença das colunas e tabelas que cada arquivo cria. Três vezes nesta
+-- construção uma migração foi dada como aplicada sem estar, e o sintoma foi
+-- sempre o mesmo -- uma funcionalidade inerte, sem erro visível.
+
+with checagens(migracao, o_que_cria, presente) as (values
+ ('001/002 fundação',        'challenge_sessions',      to_regclass('public.challenge_sessions')      is not null),
+ ('003 studio e motor',      'challenge_scenarios',     to_regclass('public.challenge_scenarios')     is not null),
+ ('004 provedor e consumo',  'scenarios.provider',      exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='provider')),
+ ('005 personas',            'scenarios.characters',    exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='characters')),
+ ('007 competências',        'scenarios.competencies',  exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='competencies')),
+ ('008 fila e incidentes',   'challenge_queue_tickets', to_regclass('public.challenge_queue_tickets') is not null),
+ ('009 funções da fila',     'challenge_claim_turn()',  exists(select 1 from pg_proc where proname='challenge_claim_turn')),
+ ('010 ceifa de bilhetes',   'tickets.last_seen_at',    exists(select 1 from information_schema.columns where table_name='challenge_queue_tickets' and column_name='last_seen_at')),
+ ('011 imprensa e calls',    'scenarios.news',          exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='news')),
+ ('012 chamadas',            'challenge_calls',         to_regclass('public.challenge_calls')         is not null),
+ ('013 sessão pausada',      'status aceita paused',    exists(select 1 from pg_constraint where conname='challenge_sessions_status_check' and pg_get_constraintdef(oid) like '%paused%')),
+ ('014 templates',           'scenarios.is_template',   exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='is_template')),
+ ('015 caso jurídico',       'cenário juridico',        exists(select 1 from public.challenge_scenarios where key='juridico'))
+)
+select
+ case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,
+ o_que_cria
+from checagens
+order by migracao;
