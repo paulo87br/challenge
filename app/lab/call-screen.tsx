@@ -7,8 +7,9 @@ type Status='idle'|'connecting'|'live'|'ending';
 
 const mmss=(s:number)=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.max(0,s)%60).padStart(2,'0')}`;
 
-export function CallScreen({characters,sessionId,onFinished}:{
+export function CallScreen({characters,sessionId,onFinished,incoming,onAnswered}:{
  characters:Character[];sessionId:string;onFinished:(info:{characterId:string;seconds:number;signals:number})=>void;
+ incoming?:{id:string;characterId:string;body:string}|null;onAnswered?:(id:string)=>void;
 }){
  const[status,setStatus]=useState<Status>('idle');
  const[active,setActive]=useState<Character|null>(null);
@@ -54,6 +55,16 @@ export function CallScreen({characters,sessionId,onFinished}:{
  function addLine(line:Line){
   linesRef.current=[...linesRef.current,line].slice(-200);
   setLines(linesRef.current);
+ }
+
+ // An incoming call is the same connection dressed differently: the browser
+ // still dials, because only the client can hold audio. What changes is who
+ // decided the conversation should happen.
+ async function answer(){
+  if(!incoming)return;
+  const person=characters.find(c=>c.id===incoming.characterId);
+  onAnswered?.(incoming.id);
+  if(person)await dial(person);
  }
 
  async function dial(person:Character){
@@ -127,6 +138,17 @@ export function CallScreen({characters,sessionId,onFinished}:{
  }
 
  if(status==='idle')return <section className="panel">
+  {incoming&&<div className="incoming-call">
+   <span className="incoming-ring"><Phone size={19}/></span>
+   <div className="incoming-who">
+    <b>{characters.find(c=>c.id===incoming.characterId)?.name||'Alguém'} está ligando</b>
+    <small>{characters.find(c=>c.id===incoming.characterId)?.role}</small>
+   </div>
+   <div className="incoming-actions">
+    <button className="btn" onClick={()=>onAnswered?.(incoming.id)}>Recusar</button>
+    <button className="btn primary" onClick={answer}><Phone size={16}/>Atender</button>
+   </div>
+  </div>}
   <div className="eyebrow">CHAMADAS</div>
   <h2>Ligar para alguém</h2>
   <p className="muted">Uma ligação é uma conversa de verdade: a pessoa atende, interrompe, hesita. Ela só sabe o que sabe — e o que você contar durante a ligação.</p>

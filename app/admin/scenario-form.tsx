@@ -85,7 +85,7 @@ export function ScenarioForm({initial,defaultCast,voiceKeyConfigured}:{initial:S
    </section>
   </>}
 
-  {secaoAtiva==='pessoas'&&<PersonaEditor characters={cast} usingDefaults={usingDefaults} onChange={next=>set({characters:next})}/>}
+  {secaoAtiva==='pessoas'&&<PersonaEditor characters={cast} usingDefaults={usingDefaults} callsEnabled={Boolean(form.calls_enabled)} onChange={next=>set({characters:next})}/>}
   {secaoAtiva==='documentos'&&<ArtifactEditor artifacts={form.artifacts||[]} characters={cast} onChange={next=>set({artifacts:next})}/>}
   {secaoAtiva==='avaliacao'&&<CompetencyEditor competencies={form.competencies||[]} onChange={next=>set({competencies:next})}/>}
   {secaoAtiva==='imprensa'&&<NewsEditor news={form.news||[]} onChange={next=>set({news:next})}/>}

@@ -2,7 +2,7 @@ import{NextResponse}from'next/server';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario}from'@/lib/simulation/scenario';
 import{scenarioCharacters}from'@/lib/simulation/scenario-world';
-import{callInstructions,mintCallSecret,REALTIME_MODEL}from'@/lib/call/realtime';
+import{callInstructions,mintCallSecret,REALTIME_MODEL}from'@/lib/call/realtime';import{resolveVoice}from'@/lib/call/voices';
 import{classify,FAILURE_LABELS}from'@/lib/ai/errors';
 import{recordIncident}from'@/lib/queue/rate';
 
@@ -46,7 +46,7 @@ export async function POST(req:Request){
     detail:`O tempo de chamada desta sessão acabou (${Math.round(perSession/60)} min no total).`},{status:409});
 
   const instructions=callInstructions(character,{title:world.title,seatRole:world.seat?.role,facts:world.facts});
-  const voice=String(character.voice||scenario.call_voice||'marin');
+  const voice=resolveVoice(character,cast,String(scenario.call_voice||'marin'));
 
   let minted;
   try{

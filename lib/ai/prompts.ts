@@ -42,6 +42,7 @@ Rules:
 - never ask exam-style questions or present multiple-choice answers;
 - choose a channel the acting character actually supports, except feed which represents the company environment and files which represent shared artifacts;
 - prefer realistic artifacts: email, team chat, feed post, document, call request, calendar event, notification or world event;
+- channel 'call' means this character is CALLING the participant right now. Use it when what the character needs is too urgent, too delicate or too tangled for writing, and only for characters whose channels include 'call'. The body is what they would say when the participant picks up - one or two sentences, not a summary. Do not use 'call' merely to deliver information a message would carry; a ringing phone is an interruption and should earn it;
 - some good decisions should simply improve the situation;
 - advance simulated time by a plausible amount, usually 1-15 minutes for chat and 5-60 minutes for email unless the story requires otherwise.
 Return valid JSON only with: summary, clock_advance_minutes, state_patch, events[]. state_patch may include facts, flags and characters[]. A character patch uses characterId and may update mood, trustInParticipant, pressure, knownFactsAdd and memoryAdd. Each event has channel, sender, characterId when applicable, recipientCharacterId when directed to a character, subject(optional), body, urgency(0..1), visible, reason, and delay_minutes(optional, integer 0..60).`;

@@ -1,6 +1,6 @@
 'use client';
 import{useState}from'react';import{ChevronDown,Copy,Trash2,UserPlus}from'lucide-react';
-import type{Character}from'@/lib/simulation/types';
+import type{Character}from'@/lib/simulation/types';import{REALTIME_VOICES,VOICE_LABELS,resolveVoice}from'@/lib/call/voices';
 
 const TRAITS:Array<{key:keyof Character['traits'];label:string}>=[
  {key:'directness',label:'Direto'},{key:'diplomacy',label:'Diplomático'},{key:'detailOrientation',label:'Detalhista'},
@@ -18,8 +18,8 @@ const lines=(value:string[])=>(value||[]).join('\n');
 const toLines=(value:string)=>value.split('\n').map(line=>line.trim()).filter(Boolean);
 const initials=(name:string)=>(name||'?').trim().split(/\s+/).map(part=>part[0]).slice(0,2).join('').toUpperCase();
 
-export function PersonaEditor({characters,onChange,usingDefaults}:{
- characters:Character[];onChange:(next:Character[])=>void;usingDefaults:boolean;
+export function PersonaEditor({characters,onChange,usingDefaults,callsEnabled}:{
+ characters:Character[];onChange:(next:Character[])=>void;usingDefaults:boolean;callsEnabled:boolean;
 }){
  // One open at a time. A cast of eight with every field expanded is the state
  // this screen was in before, and it made the rest of the Studio unreachable.
@@ -63,6 +63,7 @@ export function PersonaEditor({characters,onChange,usingDefaults}:{
        <span className="tag">influência {Math.round(person.influence*100)}%</span>
        <span className="tag">{person.state.mood||'neutro'}</span>
        <span className="tag">{(person.state.knownFacts||[]).length} fato(s)</span>
+       {callsEnabled&&<span className="tag">voz {(person as any).voice||resolveVoice(person,characters)}</span>}
       </span>
      </button>
      <span className="persona-actions">
@@ -72,6 +73,19 @@ export function PersonaEditor({characters,onChange,usingDefaults}:{
     </div>
 
     {open&&<div className="persona-body">
+     {callsEnabled&&<div className="field-grid">
+      <label><span>Voz nas chamadas</span>
+       <select className="input" value={(person as any).voiceRegister||'neutra'}
+        onChange={e=>patch(index,{voiceRegister:e.target.value as any})}>
+        <option value="feminina">Feminina</option><option value="masculina">Masculina</option><option value="neutra">Neutra</option>
+       </select></label>
+      <label><span>Voz específica (opcional)</span>
+       <select className="input" value={(person as any).voice||''} onChange={e=>patch(index,{voice:e.target.value||undefined})}>
+        <option value="">Automática — {resolveVoice({...person,voice:undefined} as Character,characters)}</option>
+        {REALTIME_VOICES.map(voice=><option key={voice} value={voice}>{VOICE_LABELS[voice]||voice}</option>)}
+       </select></label>
+     </div>}
+     {callsEnabled&&<small className="muted" style={{display:'block',marginBottom:12}}>A OpenAI não rotula as vozes por gênero; a classificação acima é por percepção. No automático, pessoas do mesmo registro recebem vozes diferentes até o grupo dar a volta.</small>}
      <div className="field-grid">
       <label><span>Nome</span><input className="input" value={person.name} onChange={e=>patch(index,{name:e.target.value})}/></label>
       <label><span>Cargo</span><input className="input" value={person.role} onChange={e=>patch(index,{role:e.target.value})}/></label>
