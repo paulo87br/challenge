@@ -336,3 +336,140 @@ body.modal-aberto{overflow:hidden}
 .switcher-sub{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-top:24px}
 .switcher-sub .switcher-heading{margin:0 0 3px}
 .switcher-sub p{margin:0}
+
+/* ---------------------------------------------------------------------------
+   O Studio usa a janela inteira.
+
+   O .painel de 1100px serve o painel do instrutor, que é leitura. O Studio é
+   formulário denso e tabela de cinco colunas: a mesma medida ali deixa metade
+   da tela vazia e espreme o resto. Só a prosa continua com largura de leitura,
+   porque linha de texto muito longa cansa mesmo numa tela larga.
+--------------------------------------------------------------------------- */
+.painel-largo{max-width:none;padding:26px 30px 70px}
+.painel-largo>p,.painel-largo .studio-head p,.painel-largo section>p{max-width:78ch}
+.painel-largo .console-summary{grid-template-columns:repeat(3,minmax(0,1fr));max-width:900px}
+
+/* O botão vivia num flex com justify-content:space-between e encolhia até o
+   rótulo quebrar em três linhas. Botão não quebra: ele ocupa o que precisa. */
+.studio-head .btn,.switcher-actions .btn,.switcher-sub .btn{flex:0 0 auto;white-space:nowrap}
+.studio-head{flex-wrap:wrap}
+
+/* ---------------------------------------------------------------------------
+   Tablet: a barra lateral encolhe antes de sumir, e as telas de três colunas
+   perdem a mais estreita primeiro.
+--------------------------------------------------------------------------- */
+@media(max-width:1100px){
+ .grid{grid-template-columns:190px 1fr}
+ .side{padding:14px 12px}
+ .nav button{padding:10px;gap:9px;font-size:13px}
+ .main{padding:20px 20px 0}
+ .h1{font-size:28px}
+ .mail-shell{grid-template-columns:142px 250px minmax(0,1fr)}
+ .files-shell{grid-template-columns:280px minmax(0,1fr)}
+ .chat-shell{grid-template-columns:240px minmax(0,1fr)}
+ .painel-largo{padding:20px 18px 70px}
+}
+
+/* ---------------------------------------------------------------------------
+   Telefone e tablet em retrato.
+
+   Até aqui a barra lateral simplesmente sumia abaixo de 800px e não vinha nada
+   no lugar: sem ela não havia como trocar de tela, e o Challenge no celular
+   virava só a caixa de entrada. Ela passa a ser uma barra inferior, que é onde
+   o polegar alcança, rolável na horizontal porque as abas não cabem lado a lado.
+
+   As telas de várias colunas empilham e a página volta a rolar: manter altura
+   de viewport com overflow escondido, num aparelho em que a barra do navegador
+   aparece e some, corta conteúdo sem dar como chegar nele.
+--------------------------------------------------------------------------- */
+@media(max-width:900px){
+ .grid{grid-template-columns:1fr;height:auto;overflow:visible}
+ .app-locked{overflow:auto}
+ .main{overflow:visible;padding:16px 14px 92px;max-width:none}
+ .screen{overflow:visible;padding-bottom:0}
+
+ /* Sem isto a tela inteira fica mais larga que o celular.
+    Item de grid e item de flex nascem com min-width:auto, que é o min-content
+    do conteúdo. A fila de pastas do e-mail são três botões que não quebram
+    linha: 481px de min-content que sobem pela árvore e fazem a coluna 1fr
+    resolver para 503px numa tela de 390. O conteúdo passa a poder encolher, e
+    quem precisa de mais largura rola dentro de si mesmo. */
+ .main,.screen,.mail-shell,.chat-shell,.files-shell,.mail-folders,.nav,.chat-list,.inbox,.file-list{min-width:0}
+
+ /* A lateral vira barra inferior. Não há JSX novo: o que muda é o eixo. */
+ .side{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:20;display:flex;
+  flex-direction:row;align-items:center;padding:6px 8px;overflow:visible;
+  border-right:0;border-top:3px solid #211a38;box-shadow:0 -4px 0 #ffd166}
+ .side .eyebrow,.side .creator-footer{display:none}
+ .nav{flex-direction:row;width:100%;margin:0;gap:5px;overflow-x:auto;scrollbar-width:none}
+ .nav::-webkit-scrollbar{display:none}
+ .nav button{flex:0 0 auto;flex-direction:column;gap:3px;min-width:60px;padding:7px 9px;
+  font-size:10px;line-height:1.15;text-align:center;border-radius:13px}
+ .nav button.active{box-shadow:2px 2px 0 #7b61ff}
+ .nav-icon{width:19px;height:19px}
+ .nav-badge{position:absolute;top:2px;right:5px;margin:0;min-width:16px;height:16px;font-size:9px}
+
+ .top{height:auto;flex-wrap:wrap;gap:8px;padding:10px 14px}
+ .top>div:last-child{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+ .tag{font-size:10px;padding:4px 8px}
+ .paused-veil{inset:0;padding:16px}
+ .hero{flex-direction:column;align-items:flex-start;gap:12px;margin-bottom:14px}
+ .temp{font-size:32px}
+ .h1{font-size:24px}
+ .mission{padding:12px 13px}
+
+ .mail-shell,.chat-shell,.files-shell{display:flex;flex-direction:column;gap:10px;height:auto;overflow:visible}
+ .mail-folders{display:flex;flex-direction:row;gap:6px;padding:0;overflow-x:auto;scrollbar-width:none}
+ .mail-folders::-webkit-scrollbar{display:none}
+ .mail-folders button{width:auto;flex:0 0 auto;white-space:nowrap;padding:9px 12px}
+ .mail-folders .big{margin:0}
+ .inbox,.file-list{max-height:46vh}
+ .mail-reader,.file-reader{padding:16px;overflow:visible}
+ .compose-mail textarea{min-height:170px}
+ .reply-box textarea{min-height:88px}
+ /* A lista de pessoas vira uma faixa horizontal: empilhada, ela empurrava a
+    conversa para fora da tela e obrigava a rolar para ver a própria mensagem. */
+ .chat-list{display:flex;flex-direction:row;gap:7px;max-height:none;padding:8px;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+ .chat-list::-webkit-scrollbar{display:none}
+ .chat-list h3{display:none}
+ .chat-person{flex:0 0 auto;flex-direction:column;gap:5px;width:78px;padding:8px 5px;text-align:center}
+ .chat-person small{display:none}
+ .chat-person>span:not(.person-avatar){font-size:11px;line-height:1.2;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+ .chat-main{height:auto;min-height:0}
+ .chat-history{max-height:56vh}
+ .bubble{max-width:88%}
+ .org-chart{min-height:0;padding:18px 4px}
+ .org-level{flex-direction:column;gap:14px}
+ .org-node{min-width:0;width:100%}
+ .feed{max-width:none}
+
+ .veu{padding:12px}
+ .modal{max-height:calc(100vh - 24px)}
+ .modal-foot{flex-direction:column-reverse}
+ .modal-foot .btn{width:100%!important;justify-content:center}
+ .entrada{padding:16px;min-height:100dvh}
+ .entrada-caixa{padding:20px}
+ .entrada-caixa h1{font-size:23px}
+ .codigo-form{flex-direction:column;align-items:stretch}
+ .codigo-form .btn{width:100%!important;justify-content:center}
+ .switcher-row{flex-direction:column;align-items:stretch}
+ .switcher-actions{flex-wrap:wrap}
+ .switcher-actions .btn{flex:1 1 auto;justify-content:center}
+ .switcher-sub{flex-direction:column;align-items:stretch;gap:10px}
+ .studio-head .btn{width:100%!important;justify-content:center}
+ .painel-head,.studio-head{flex-direction:column;align-items:stretch}
+}
+
+/* Telefone estreito: o que ainda insistia em duas colunas passa a uma. */
+@media(max-width:480px){
+ .main{padding:12px 11px 92px}
+ .h1{font-size:21px}
+ .painel-largo{padding:14px 11px 70px}
+ .console-tabs button,.studio-sections button{padding:9px 11px;font-size:12px}
+ .bubble{max-width:94%}
+ .cartao-codigo b{font-size:34px}
+ .codigo-input{font-size:22px;letter-spacing:.22em}
+ .mundo-card{flex-wrap:wrap}
+}

@@ -15,9 +15,8 @@ const sql=`-- "${caso.title}": o caso do recurso com precedentes inexistentes.
 --
 -- Princípios da spec que estão no dado:
 --   - nenhum nome real de pessoa, empresa, escritório, tribunal ou processo;
---   - todo documento marcado "CASO FICTÍCIO";
---   - nenhuma citação normativa escrita pelo agente: onde o caso exigiria uma,
---     o texto traz [VERIFICAR — Paulo] (${verificar} ocorrências).
+--   - nenhuma citação normativa escrita pelo agente: onde o caso pediria uma, o
+--     texto trata do fato e da decisão, não do dispositivo.
 -- As regras de "nunca confirmar nem negar que uma norma existe" e "nunca dizer
 -- legal ou ilegal" vivem nos prompts, porque dado nenhum impede um modelo de opinar.
 --
@@ -49,7 +48,12 @@ insert into public.challenge_scenarios(
  call_minutes_per_session=excluded.call_minutes_per_session,call_voice=excluded.call_voice,
  updated_at=now();
 
--- Só se a 014 já existir. O cenário nasce inativo: colocá-lo no ar é decisão no Studio.
+-- Só se a 014 já existir.
+--
+-- 'active' não entra aqui de propósito. O cenário nasce fora do ar pelo default
+-- da coluna, e pôr no ar é decisão do Studio; escrever active=false neste ponto
+-- faria a reaplicação da migração -- que é como o texto do caso é atualizado --
+-- tirar do ar um mundo em que alguém pode estar.
 do $do$
 begin
  if exists(
@@ -57,7 +61,7 @@ begin
    where table_schema='public' and table_name='challenge_scenarios' and column_name='is_template'
  ) then
   update public.challenge_scenarios
-     set is_template=false, active=false, created_from='manual'
+     set is_template=false, created_from='manual'
    where key=${t(caso.key)};
  end if;
 end

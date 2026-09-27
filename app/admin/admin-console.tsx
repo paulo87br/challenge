@@ -24,7 +24,7 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
  const exercised=participants.filter(p=>p.actions>0).length;
  const finished=participants.filter(p=>p.hasDebrief).length;
 
- return <main className="painel">
+ return <main className="painel painel-largo">
   <header className="painel-head">
    <div><div className="eyebrow">CHALLENGE · STUDIO</div><h1 className="h1">{scenario.title}</h1>
    <p className="muted">Você monta o mundo aqui. O motor cuida de fazer a história reagir.</p></div>
