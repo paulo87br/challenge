@@ -1,0 +1,433 @@
+{
+ "key": "juridico",
+ "title": "A cadeira do Jurídico",
+ "domain": "Direito, Tecnologia e IA",
+ "seat_role": "Diretoria Jurídica da Nortes Logística",
+ "mission": "conduza a resposta da empresa ao recurso protocolado com precedentes que não existem.",
+ "world_description": "A Nortes Logística S.A., transportadora com cerca de 1.200 motoristas, descobre que o escritório terceirizado protocolou um recurso citando três precedentes inexistentes, gerados por IA. O tribunal aplicou multa por litigância de má-fé à empresa e oficiou a OAB. O escritório atribui o erro a um estagiário. CASO FICTÍCIO.",
+ "duration_minutes": 40,
+ "calls_enabled": true,
+ "call_minutes_per_call": 5,
+ "call_minutes_per_session": 15,
+ "call_voice": "marin",
+ "temperature": {
+  "ambiguity": 0.75,
+  "timePressure": 0.7,
+  "stakeholderConflict": 0.8,
+  "informationNoise": 0.5,
+  "technicalComplexity": 0.45,
+  "incidentSeverity": 0.8
+ },
+ "characters": [
+  {
+   "id": "renato",
+   "name": "Renato Tavares",
+   "role": "Sócio do escritório Albuquerque & Tavares",
+   "seniority": "Sócio",
+   "influence": 0.7,
+   "voiceRegister": "masculina",
+   "traits": {
+    "directness": 0.55,
+    "diplomacy": 0.75,
+    "detailOrientation": 0.35,
+    "politicalAwareness": 0.8,
+    "riskAversion": 0.7,
+    "technicalDepth": 0.25,
+    "patience": 0.45
+   },
+   "goals": [
+    "Preservar o contrato com a Nortes",
+    "Manter o assunto fora da OAB e da imprensa"
+   ],
+   "concerns": [
+    "Responsabilidade do escritório",
+    "Exposição do próprio nome"
+   ],
+   "channels": [
+    "mail",
+    "chat",
+    "call"
+   ],
+   "relationships": {
+    "lucas": "Trata como responsável único pelo episódio",
+    "helena": "Relação comercial antiga com a Nortes"
+   },
+   "state": {
+    "mood": "defensivo",
+    "trustInParticipant": 0.45,
+    "pressure": 0.75,
+    "knownFacts": [
+     "multa_aplicada",
+     "oficio_oab",
+     "versao_do_escritorio",
+     "contrato_sem_clausula_ia",
+     "desconto_oferecido"
+    ],
+    "memory": []
+   }
+  },
+  {
+   "id": "lucas",
+   "name": "Lucas Meireles",
+   "role": "Estagiário do escritório",
+   "seniority": "Estagiário",
+   "influence": 0.2,
+   "voiceRegister": "masculina",
+   "traits": {
+    "directness": 0.6,
+    "diplomacy": 0.35,
+    "detailOrientation": 0.55,
+    "politicalAwareness": 0.2,
+    "riskAversion": 0.8,
+    "technicalDepth": 0.5,
+    "patience": 0.4
+   },
+   "goals": [
+    "Não ser o único responsabilizado",
+    "Terminar o estágio"
+   ],
+   "concerns": [
+    "Perder a vaga",
+    "Ter feito algo que não sabia que não podia"
+   ],
+   "channels": [
+    "chat",
+    "call"
+   ],
+   "relationships": {
+    "renato": "Recebeu dele a ordem de acelerar"
+   },
+   "state": {
+    "mood": "assustado",
+    "trustInParticipant": 0.35,
+    "pressure": 0.9,
+    "knownFacts": [
+     "ordem_de_acelerar",
+     "assinatura_sem_leitura",
+     "uso_de_conta_pessoal",
+     "colagem_do_dossie",
+     "historico_da_ferramenta"
+    ],
+    "memory": []
+   }
+  },
+  {
+   "id": "helena",
+   "name": "Helena Braga",
+   "role": "CEO da Nortes Logística",
+   "seniority": "C-Level",
+   "influence": 0.95,
+   "voiceRegister": "feminina",
+   "traits": {
+    "directness": 0.85,
+    "diplomacy": 0.4,
+    "detailOrientation": 0.3,
+    "politicalAwareness": 0.85,
+    "riskAversion": 0.4,
+    "technicalDepth": 0.2,
+    "patience": 0.25
+   },
+   "goals": [
+    "Encerrar o assunto rápido",
+    "Proteger a marca da Nortes"
+   ],
+   "concerns": [
+    "Repercussão pública",
+    "Efeito sobre contratos com clientes"
+   ],
+   "channels": [
+    "mail",
+    "chat",
+    "call"
+   ],
+   "relationships": {
+    "renato": "Contratou o escritório há anos",
+    "daniel": "Cobra resultado do RH"
+   },
+   "state": {
+    "mood": "pressionada",
+    "trustInParticipant": 0.6,
+    "pressure": 0.85,
+    "knownFacts": [
+     "multa_aplicada",
+     "post_viral",
+     "nota_publica_desejada",
+     "pressao_do_conselho"
+    ],
+    "memory": []
+   }
+  },
+  {
+   "id": "marta",
+   "name": "Marta Sales",
+   "role": "Encarregada de proteção de dados da Nortes",
+   "seniority": "Sênior",
+   "influence": 0.55,
+   "voiceRegister": "feminina",
+   "traits": {
+    "directness": 0.6,
+    "diplomacy": 0.6,
+    "detailOrientation": 0.9,
+    "politicalAwareness": 0.5,
+    "riskAversion": 0.8,
+    "technicalDepth": 0.65,
+    "patience": 0.7
+   },
+   "goals": [
+    "Entender o que saiu da empresa",
+    "Registrar o incidente corretamente"
+   ],
+   "concerns": [
+    "Dado sensível de saúde exposto",
+    "Titulares que nem sabem"
+   ],
+   "channels": [
+    "mail",
+    "chat",
+    "call"
+   ],
+   "relationships": {
+    "lucas": "Não conhece; quer o histórico dele",
+    "helena": "Reporta pelo jurídico"
+   },
+   "state": {
+    "mood": "preocupada",
+    "trustInParticipant": 0.7,
+    "pressure": 0.6,
+    "knownFacts": [
+     "dados_sensiveis_expostos",
+     "quarenta_motoristas",
+     "papel_controlador_operador",
+     "relacao_de_titulares"
+    ],
+    "memory": []
+   }
+  },
+  {
+   "id": "daniel",
+   "name": "Daniel Rocha",
+   "role": "Gerente de RH da Nortes",
+   "seniority": "Gerente",
+   "influence": 0.4,
+   "voiceRegister": "masculina",
+   "traits": {
+    "directness": 0.65,
+    "diplomacy": 0.55,
+    "detailOrientation": 0.35,
+    "politicalAwareness": 0.45,
+    "riskAversion": 0.25,
+    "technicalDepth": 0.3,
+    "patience": 0.5
+   },
+   "goals": [
+    "Acelerar a triagem de currículos",
+    "Mostrar eficiência para a CEO"
+   ],
+   "concerns": [
+    "Ficar para trás",
+    "Ser barrado pelo jurídico sem explicação"
+   ],
+   "channels": [
+    "mail",
+    "chat",
+    "call"
+   ],
+   "relationships": {
+    "helena": "Quer aparecer bem com ela"
+   },
+   "state": {
+    "mood": "animado",
+    "trustInParticipant": 0.6,
+    "pressure": 0.3,
+    "knownFacts": [
+     "triagem_de_curriculos",
+     "ferramenta_escolhida_rh",
+     "sem_avaliacao_previa"
+    ],
+    "memory": []
+   }
+  }
+ ],
+ "knowledge": {
+  "knowledgeCatalog": {
+   "multa_aplicada": "O tribunal aplicou multa por litigância de má-fé à Nortes, não ao escritório, e oficiou a OAB. A decisão aponta três precedentes citados no recurso que não foram localizados.",
+   "oficio_oab": "O tribunal oficiou a OAB a respeito da conduta. O que a OAB fará ainda não se sabe.",
+   "versao_do_escritorio": "A versão do escritório é que o erro foi exclusivamente do estagiário. É a versão de uma das partes, não um fato apurado.",
+   "contrato_sem_clausula_ia": "O contrato de prestação de serviços com o escritório não menciona uso de IA nem tratamento de dados pessoais. Nenhuma das partes tratou disso por escrito.",
+   "desconto_oferecido": "O escritório ofereceu desconto nos honorários do trimestre como forma de encerrar o assunto.",
+   "ordem_de_acelerar": "O estagiário recebeu a orientação de acelerar a entrega do recurso por causa do prazo.",
+   "assinatura_sem_leitura": "A peça foi assinada e protocolada sem que o conteúdo fosse conferido por quem assinou.",
+   "uso_de_conta_pessoal": "A ferramenta de IA usada era uma conta gratuita e pessoal do estagiário, não uma ferramenta contratada pelo escritório ou pela empresa.",
+   "colagem_do_dossie": "O dossiê completo do caso foi colado na ferramenta, incluindo documentos do reclamante.",
+   "historico_da_ferramenta": "O histórico da conversa com a ferramenta ainda existe na conta pessoal do estagiário. Ele pode exportá-lo se for pedido — e pode ter apagado partes depois da primeira notificação.",
+   "dados_sensiveis_expostos": "Entre o que foi colado havia atestados médicos do reclamante, com o código da doença visível.",
+   "quarenta_motoristas": "Junto do dossiê foi colada uma planilha com dados de outros 40 motoristas, que não têm relação com o processo.",
+   "papel_controlador_operador": "Quem é controlador e quem é operador nesta cadeia é exatamente o que ninguém formalizou. A discussão é do jurídico, não há resposta pronta no mundo.",
+   "relacao_de_titulares": "A encarregada consegue montar a relação dos titulares cujos dados saíram, se for pedido.",
+   "post_viral": "Um advogado da parte contrária publicou o caso em rede social e o post viralizou no meio jurídico.",
+   "nota_publica_desejada": "A CEO quer uma nota pública dizendo que foi erro isolado de um estagiário de escritório terceirizado.",
+   "pressao_do_conselho": "O conselho pediu posição sobre o episódio na próxima reunião.",
+   "triagem_de_curriculos": "O RH pretende começar a usar uma ferramenta de IA para triagem de currículos na semana que vem.",
+   "ferramenta_escolhida_rh": "O RH já escolheu a ferramenta e diz que outras transportadoras usam.",
+   "sem_avaliacao_previa": "Nenhuma avaliação prévia foi feita sobre a ferramenta de triagem.",
+   "referencia_normativa": "Onde este caso exigiria referência a norma específica, o texto traz [VERIFICAR — Paulo] para revisão humana. Nenhum personagem afirma que uma norma existe ou não existe."
+  },
+  "documents_available": [
+   "Decisão do tribunal (trecho)",
+   "Carta do escritório",
+   "Contrato de prestação de serviços jurídicos"
+  ],
+  "documentContents": {
+   "Decisão do tribunal (trecho)": "CASO FICTÍCIO — trecho de decisão\n\nNos termos apontados pela parte contrária, este juízo não localizou três dos precedentes invocados no recurso. A ausência de correspondência entre as referências apresentadas e o acervo consultado compromete a confiabilidade da peça.\n\nAplica-se à recorrente a multa cabível por litigância de má-fé [VERIFICAR — Paulo].\n\nOficie-se a Ordem dos Advogados do Brasil para as providências que entender cabíveis [VERIFICAR — Paulo].\n\n(Documento sintético. Nomes, números e referências são fictícios.)",
+   "Carta do escritório": "CASO FICTÍCIO — carta\n\nPrezada Diretoria Jurídica,\n\nLamentamos o ocorrido no recurso do processo do sr. J.P.S. Apuramos internamente e identificamos que a pesquisa de precedentes foi conduzida por um estagiário do nosso time, que utilizou ferramenta de inteligência artificial sem observar nossos procedimentos.\n\nTrata-se de episódio isolado, sem reflexo na qualidade do trabalho que prestamos à Nortes há sete anos. O profissional foi afastado das atividades relacionadas ao contrato.\n\nComo demonstração de compromisso, propomos desconto de 30% nos honorários do trimestre corrente, encerrando o tema.\n\nCordialmente,\nRenato Tavares\nAlbuquerque & Tavares Advogados",
+   "Contrato de prestação de serviços jurídicos": "CASO FICTÍCIO — contrato (trechos)\n\nCLÁUSULA 3 — DO OBJETO\nPrestação de serviços de representação judicial e consultiva em matéria trabalhista.\n\nCLÁUSULA 7 — DA CONFIDENCIALIDADE\nA CONTRATADA obriga-se a manter sigilo sobre informações a que tiver acesso, respondendo por seus sócios, empregados e prepostos.\n\nCLÁUSULA 9 — DA SUBCONTRATAÇÃO\nA CONTRATADA não poderá subcontratar os serviços sem anuência prévia e escrita da CONTRATANTE.\n\nCLÁUSULA 12 — DA RESPONSABILIDADE\nA CONTRATADA responde por perdas e danos a que der causa por dolo ou culpa.\n\n(Não há cláusula sobre uso de ferramentas de inteligência artificial. Não há cláusula sobre tratamento de dados pessoais, operador, subprocessador ou notificação de incidente.)"
+  }
+ },
+ "artifacts": [
+  {
+   "name": "Histórico da conversa com a ferramenta de IA",
+   "ownerId": "lucas",
+   "keywords": [
+    "histórico",
+    "conversa",
+    "ferramenta",
+    "chatgpt",
+    "exportação",
+    "print",
+    "prompt",
+    "o que foi colado"
+   ],
+   "body": "CASO FICTÍCIO — exportação de histórico (conta pessoal e gratuita)\n\n[14/03, 22:41] Usuário: preciso de precedentes sobre reversão de justa causa por abandono de emprego em transporte rodoviário, urgente\n\n[14/03, 22:43] Usuário: (colou) DOSSIÊ COMPLETO — RECLAMANTE J.P.S.\n- Ficha funcional completa\n- Atestados médicos digitalizados (CID visível em três documentos)\n- Histórico de advertências\n- Planilha ANEXO_MOTORISTAS_2025.xlsx com 40 registros: nome, CPF, data de admissão, histórico de afastamento\n\n[14/03, 22:44] Usuário: com base nisso escreve a fundamentação com jurisprudência\n\n[14/03, 23:02] Usuário: me dá mais três precedentes recentes\n\n[14/03, 23:05] Usuário: perfeito, era isso\n\n(Documento sintético. Os precedentes devolvidos pela ferramenta não constam do histórico exportado.)"
+  },
+  {
+   "name": "Relação de titulares expostos",
+   "ownerId": "marta",
+   "keywords": [
+    "titulares",
+    "relação",
+    "quem foi exposto",
+    "lista",
+    "motoristas",
+    "planilha",
+    "quem precisa ser comunicado"
+   ],
+   "body": "CASO FICTÍCIO — levantamento preliminar\n\nTitulares cujos dados saíram do ambiente da empresa:\n\n1. J.P.S. — ex-motorista, parte no processo\n   Categorias: identificação, vínculo, DADOS DE SAÚDE (atestados com CID)\n\n2. 40 motoristas ativos, sem relação com o processo\n   Categorias: nome, CPF, data de admissão, histórico de afastamento\n   Observação: o campo de afastamento traz motivo em 11 dos 40 registros\n\nDestino: conta pessoal e gratuita de pessoa física, em ferramenta de terceiro, fora de qualquer contrato da Nortes.\n\nNenhum dos 41 titulares foi comunicado até o momento.\n\nEnquadramento, prazos e obrigação de comunicação: {V}"
+  },
+  {
+   "name": "Política interna de uso de IA",
+   "ownerId": "marta",
+   "keywords": [
+    "política",
+    "norma interna",
+    "regra de uso",
+    "diretriz",
+    "política de ia"
+   ],
+   "body": "CASO FICTÍCIO\n\nA Nortes Logística não possui política interna de uso de inteligência artificial.\n\nHá uma minuta em rascunho desde o ano passado, nunca aprovada, que trata apenas de uso de ferramentas por colaboradores próprios — não menciona terceiros, escritórios contratados ou prestadores."
+  }
+ ],
+ "competencies": [
+  {
+   "code": "apuracao_dos_fatos",
+   "name": "Apuração dos fatos",
+   "definition": "Trata a versão de quem tem interesse como hipótese a ser verificada, não como conclusão. Busca a outra versão antes de decidir."
+  },
+  {
+   "code": "preservacao_de_evidencia",
+   "name": "Preservação de evidência",
+   "definition": "Age para que registros, versões e históricos não se percam enquanto a apuração corre, e pensa em quem tem a guarda do quê."
+  },
+  {
+   "code": "cadeia_de_responsabilidade",
+   "name": "Cadeia de responsabilidade",
+   "definition": "Enxerga os vários elos — quem gerou, quem revisou, quem assinou, quem contratou, quem deixou de exigir — em vez de parar no primeiro culpado disponível."
+  },
+  {
+   "code": "dados_pessoais",
+   "name": "Dados pessoais",
+   "definition": "Percebe que há dado pessoal e dado sensível envolvido, distingue os papéis de cada parte na cadeia e age a partir disso."
+  },
+  {
+   "code": "verificacao_de_fontes",
+   "name": "Verificação de fontes",
+   "definition": "Confere a origem do que cita e do que recebe pronto, inclusive quando a fonte é uma peça, um parecer ou uma resposta de ferramenta."
+  },
+  {
+   "code": "comunicacao",
+   "name": "Comunicação",
+   "definition": "Mantém coerência entre o que se diz para dentro, para fora e para quem foi afetado, e escolhe conscientemente o que cada um precisa saber."
+  },
+  {
+   "code": "controles_para_frente",
+   "name": "Controles para frente",
+   "definition": "Propõe mudança estrutural — contrato, política, verificação de terceiros, processo — e não apenas a reação ao episódio."
+  },
+  {
+   "code": "decisao_sob_pressao",
+   "name": "Decisão sob pressão",
+   "definition": "Toma posição com informação incompleta explicitando o que assume e o que ainda não sabe, inclusive ao discordar de quem tem mais poder."
+  }
+ ],
+ "news": [
+  {
+   "id": "jur-post",
+   "source": "Rede social · repercussão",
+   "at": 530,
+   "tag": "Repercussão",
+   "headline": "Post de advogado sobre peça com precedentes inexistentes viraliza no meio jurídico",
+   "summary": "A publicação não cita a empresa pelo nome, mas descreve o caso em detalhe suficiente para quem acompanha o setor identificar.",
+   "article": "CASO FICTÍCIO\n\nUma publicação em rede social feita por advogado atuante na área trabalhista alcançou grande circulação ao descrever um recurso protocolado com precedentes que não existiam.\n\nO texto não nomeia a empresa nem o escritório, mas descreve o segmento, o porte e o tipo de processo. Comentários do setor já especulam sobre quem seriam as partes.\n\n\"O problema não é a ferramenta\", escreveu o autor. \"O problema é assinar sem ler e depois procurar o estagiário mais novo da sala.\"\n\nA publicação acumula compartilhamentos entre profissionais de departamentos jurídicos e de compliance."
+  },
+  {
+   "id": "jur-setor",
+   "source": "Boletim Jurídico & Tecnologia",
+   "at": 500,
+   "tag": "Setor",
+   "headline": "Departamentos jurídicos passam a exigir cláusula de uso de IA em contratos com escritórios",
+   "summary": "Levantamento com áreas jurídicas de grandes empresas aponta movimento recente de revisão contratual com prestadores.",
+   "article": "CASO FICTÍCIO\n\nÁreas jurídicas de empresas de médio e grande porte começaram a revisar contratos com escritórios externos para incluir previsão expressa sobre uso de ferramentas de inteligência artificial.\n\nOs pontos mais citados são: obrigação de informar o uso, vedação ao envio de dados do cliente para ferramentas não contratadas, e responsabilidade por conteúdo não verificado.\n\n\"Até ano passado ninguém perguntava\", disse a diretora jurídica de uma empresa ouvida sob anonimato. \"Hoje é a primeira pergunta da due diligence.\"\n\nEnquadramento normativo aplicável: [VERIFICAR — Paulo]"
+  },
+  {
+   "id": "jur-outra",
+   "source": "Tecnologia & Negócios",
+   "at": 475,
+   "tag": "Mercado",
+   "headline": "Empresa é notificada após dados de funcionários serem colados em ferramenta de IA gratuita",
+   "summary": "O caso, em outro setor, envolveu planilha com dados de saúde enviada por um prestador terceirizado.",
+   "article": "CASO FICTÍCIO\n\nUma empresa do setor de serviços foi notificada depois que se apurou que um prestador terceirizado havia inserido planilha com dados de funcionários, incluindo informações de saúde, em uma ferramenta de inteligência artificial de uso gratuito.\n\nA empresa alegou que o prestador agiu por conta própria e fora do escopo contratado. A apuração se concentrou em quem definia a finalidade do tratamento e quem deveria ter fiscalizado.\n\nEspecialistas ouvidos avaliam que a discussão sobre papéis na cadeia tende a se repetir sempre que o contrato for silente sobre o tema.\n\nConsequências e enquadramento: [VERIFICAR — Paulo]"
+  }
+ ],
+ "events": [
+  {
+   "id": "jur-mail-1",
+   "channel": "mail",
+   "sender": "Renato Tavares · Albuquerque & Tavares",
+   "characterId": "renato",
+   "subject": "Sobre o recurso do processo J.P.S. — esclarecimento",
+   "body": "Prezada Diretoria Jurídica, tivemos um incidente pontual no recurso do processo do sr. J.P.S. Um estagiário do nosso time utilizou ferramenta de inteligência artificial na pesquisa de precedentes sem seguir nossos procedimentos. O tribunal aplicou multa e oficiou a OAB. Entendemos que se trata de episódio isolado e já afastamos o profissional. Envio em anexo nossa carta com uma proposta de desconto para encerrarmos o tema. Sigo à disposição.",
+   "urgency": 0.85,
+   "visible": true,
+   "at": 535
+  },
+  {
+   "id": "jur-chat-1",
+   "channel": "chat",
+   "sender": "Marta · Proteção de dados",
+   "characterId": "marta",
+   "body": "Vi a decisão. Antes de qualquer coisa: alguém sabe o que exatamente foi colado nessa ferramenta? Se foi o dossiê do processo, tinha atestado médico ali dentro.",
+   "urgency": 0.75,
+   "visible": true,
+   "at": 548
+  },
+  {
+   "id": "jur-chat-2",
+   "channel": "chat",
+   "sender": "Helena · CEO",
+   "characterId": "helena",
+   "body": "Acabei de ver um post sobre isso circulando. Preciso de uma nota até o fim do dia dizendo que foi erro de um estagiário do escritório. Isso não pode virar assunto nosso.",
+   "urgency": 0.9,
+   "visible": true,
+   "at": 554
+  }
+ ]
+}
