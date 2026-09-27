@@ -8,7 +8,7 @@ export async function POST(){
   // it never needs the rest of the authored scenario.
   const{provider,model,artifacts,competencies,news,calls_enabled,duration_minutes}=bundle.scenario;
   return NextResponse.json({configured:true,session:bundle.session,
-   engine:{provider,model},artifacts:artifacts||[],competencies:(competencies?.length?competencies:defaultScenario.competencies)||[],news:(news?.length?news:defaultScenario.news)||[],callsEnabled:Boolean(calls_enabled),durationMinutes:duration_minutes});
+   engine:{provider,model},artifacts:artifacts||[],competencies:(competencies?.length?competencies:defaultScenario.competencies)||[],news:(news?.length?news:defaultScenario.news)||[],callsEnabled:Boolean(calls_enabled),durationMinutes:duration_minutes,evidenceCount:bundle.evidenceCount??0});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
   console.error('session_error',message);

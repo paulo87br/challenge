@@ -3,7 +3,7 @@ import type{Debrief,EngineLog,EvidenceSignal,TurnDiagnostic,WorldState}from'@/li
 import{defaultScenario,worldFromScenario,type ScenarioConfig}from'@/lib/simulation/scenario';
 
 export type SessionRow={id:string;world_state:WorldState|Record<string,never>;debrief:Debrief|null;status:string};
-export type SessionBundle={session:SessionRow;scenario:ScenarioConfig};
+export type SessionBundle={session:SessionRow;scenario:ScenarioConfig;evidenceCount:number};
 
 // Returns null whenever Supabase is not configured or nobody is signed in, so
 // every caller degrades into the local-only mode the app already supports.
@@ -28,7 +28,14 @@ export async function ensureSession(scenarioKey='atlas'):Promise<SessionBundle|n
   const world=(existing.world_state as any)?.scenarioId?existing.world_state:worldFromScenario(scenario);
   if(!(existing.world_state as any)?.scenarioId)
    await supabase.from('challenge_sessions').update({world_state:world}).eq('id',existing.id);
-  return{session:{...existing,world_state:world} as SessionRow,scenario};
+  // Counted with the service role on purpose: the policies give the participant
+  // no read on evidence, which is what keeps them from grading themselves. They
+  // are still owed the number, or the closing screen tells them they have none.
+  const admin=createSupabaseAdminClient();
+  const{count}=admin
+   ?await admin.from('challenge_evidence').select('id',{count:'exact',head:true}).eq('session_id',existing.id)
+   :{count:0};
+  return{session:{...existing,world_state:world} as SessionRow,scenario,evidenceCount:count||0};
  }
  // A new world is built from the authored scenario. Sessions already running
  // keep the world they were played in: editing the Studio must not rewrite
@@ -37,7 +44,7 @@ export async function ensureSession(scenarioKey='atlas'):Promise<SessionBundle|n
   .insert({user_id:user.id,scenario_key:scenarioKey,world_state:worldFromScenario(scenario)})
   .select('id,world_state,debrief,status').single();
  if(error)throw new Error(error.message);
- return{session:created as SessionRow,scenario};
+ return{session:created as SessionRow,scenario,evidenceCount:0};
 }
 
 // Restarting has to reach the database. Resetting only the browser left the
@@ -58,7 +65,7 @@ export async function restartSession(scenarioKey='atlas'):Promise<SessionBundle|
   .insert({user_id:user.id,scenario_key:scenarioKey,world_state:worldFromScenario(scenario)})
   .select('id,world_state,debrief,status').single();
  if(error)throw new Error(error.message);
- return{session:created as SessionRow,scenario};
+ return{session:created as SessionRow,scenario,evidenceCount:0};
 }
 
 export async function saveSessionState(sessionId:string,patch:{world?:WorldState;debrief?:Debrief|null;status?:string}){
@@ -67,7 +74,7 @@ export async function saveSessionState(sessionId:string,patch:{world?:WorldState
  const update:Record<string,unknown>={updated_at:new Date().toISOString()};
  if(patch.world)update.world_state=patch.world;
  if(patch.debrief!==undefined)update.debrief=patch.debrief;
- if(patch.status){update.status=patch.status;if(patch.status==='completed')update.completed_at=new Date().toISOString()}
+ if(patch.status){update.status=patch.status;if(patch.status==='completed')update.completed_at=new Date().toISOString();if(patch.status==='active')update.completed_at=null}
  const{error}=await supabase.from('challenge_sessions').update(update).eq('id',sessionId);
  if(error)throw new Error(error.message);
  return true;

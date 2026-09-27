@@ -1,9 +1,10 @@
 'use client';
-import{Flag,Lightbulb,Compass,HelpCircle}from'lucide-react';
+import{Flag,Lightbulb,Compass,HelpCircle,Pause,Play}from'lucide-react';
 import type{Debrief}from'@/lib/simulation/types';
 
-export function DebriefScreen({debrief,evidenceCount,turnCount,busy,error,onGenerate,onRestart}:{
+export function DebriefScreen({debrief,evidenceCount,turnCount,busy,error,onGenerate,onRestart,paused,onTogglePause}:{
  debrief:Debrief|null;evidenceCount:number;turnCount:number;busy:boolean;error:string;onGenerate:()=>void;onRestart:()=>void;
+ paused:boolean;onTogglePause:()=>void;
 }){
  if(!debrief)return <section className="panel debrief-empty">
   <div className="eyebrow">FECHAMENTO</div>
@@ -13,9 +14,18 @@ export function DebriefScreen({debrief,evidenceCount,turnCount,busy,error,onGene
    <div className="panel"><div className="eyebrow">AÇÕES</div><div className="metric">{turnCount}</div></div>
    <div className="panel"><div className="eyebrow">EVIDÊNCIA</div><div className="metric">{evidenceCount}</div></div>
   </div>
-  {evidenceCount===0&&<p className="muted">Ainda não há evidência registrada. Converse com as pessoas, busque documentos e tome decisões — o debrief se constrói a partir do que você realmente fizer.</p>}
+  {evidenceCount===0&&<p className="muted">Ainda não há evidência registrada. Você pode encerrar assim mesmo, mas o debrief se constrói do que você fez no mundo — conversar, buscar documentos e decidir é o que dá a ele o que dizer.</p>}
   {error&&<div className="runtime-error">{error}</div>}
-  <button className="btn primary" disabled={busy||evidenceCount===0} onClick={onGenerate}>{busy?'Escrevendo seu debrief…':'Encerrar e ver meu debrief'}</button>
+
+  <section className="pause-card">
+   <div><b>{paused?'Sessão pausada':'Precisa parar agora?'}</b>
+    <small>{paused
+     ? 'O relógio do mundo está parado e o tempo desta pausa não conta. Retome quando puder.'
+     : 'Você pode pausar e voltar depois, de qualquer navegador onde entrar com a mesma conta. Nada se perde.'}</small></div>
+   <button className="btn" onClick={onTogglePause}>{paused?<><Play size={16}/>Retomar</>:<><Pause size={16}/>Pausar</>}</button>
+  </section>
+
+  <button className="btn primary" disabled={busy} onClick={onGenerate}>{busy?'Escrevendo seu debrief…':'Encerrar e ver meu debrief'}</button>
   <button className="btn restart" onClick={onRestart}>Recomeçar do zero</button>
  </section>;
 
