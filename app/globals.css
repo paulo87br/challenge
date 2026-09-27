@@ -475,3 +475,38 @@ body.modal-aberto{overflow:hidden}
 }
 .campo-dica{display:block;margin-top:5px;color:#756d82;font-size:11px;line-height:1.4;font-weight:500}
 .feed-aguardando{margin:14px 2px 0;font-size:12px}
+
+/* ---------------------------------------------------------------------------
+   Quem está logado, e como sair.
+
+   Na barra lateral do participante fica no rodapé, acima da assinatura. No
+   Studio e no painel do instrutor fica no canto do cabeçalho, em versão
+   compacta -- ali a identidade importa menos que o botão.
+--------------------------------------------------------------------------- */
+.usuario-sessao{display:grid;grid-template-columns:32px minmax(0,1fr);gap:7px 9px;align-items:center;
+ margin-top:18px;padding-top:15px;border-top:2px solid #e7dfef}
+.usuario-marca{flex:0 0 auto;display:inline-grid;place-items:center;width:32px;height:32px;border-radius:11px;
+ background:linear-gradient(135deg,#12b89a,#7b61ff);color:#fff;font-size:11px;font-weight:900}
+.usuario-quem{flex:1;min-width:0;line-height:1.25}
+.usuario-quem b{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.usuario-quem small{display:block;color:#756d82;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* O botão ocupa a linha de baixo: dividindo a linha com o nome, os dois
+   ficavam cortados numa barra de 225px. */
+.usuario-sair{grid-column:1/-1;width:100%!important;justify-content:center;padding:8px 10px;
+ box-shadow:2px 2px 0 #211a38;font-size:12px}
+.usuario-sessao.compacto{display:flex;align-items:center;gap:9px;margin:0;padding:0;border-top:0}
+.usuario-sessao.compacto .usuario-sair{grid-column:auto;width:auto!important;flex:0 0 auto;padding:7px 11px}
+.painel-head-acoes{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+@media(max-width:900px){
+ /* Na barra inferior não há rodapé: o bloco vira só o botão, encostado na
+    direita, e a navegação rola por baixo dele sem passar por cima. */
+ .side .usuario-sessao{display:flex;margin:0;padding:0 0 0 7px;border-top:0;border-left:2px solid #e7dfef;
+  flex:0 0 auto;order:9;align-self:stretch;align-items:center}
+ .side .usuario-sessao .usuario-sair{grid-column:auto;width:auto!important}
+ .side .usuario-marca{width:26px;height:26px;font-size:10px;border-radius:9px}
+ .side .usuario-quem,.side .usuario-sair-rotulo{display:none}
+ .side .usuario-sair{padding:7px;box-shadow:none}
+ .painel-head-acoes{width:100%}
+ .painel-head-acoes .btn{flex:1 1 auto;justify-content:center}
+}

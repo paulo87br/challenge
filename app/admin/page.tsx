@@ -1,7 +1,7 @@
 import{redirect}from'next/navigation';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';import{initialWorld}from'@/lib/simulation/runtime';
-import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{FAILURE_LABELS}from'@/lib/ai/errors';
+import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{FAILURE_LABELS}from'@/lib/ai/errors';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'Studio · Challenge'};
@@ -89,5 +89,6 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  // participant finds out by clicking a button that fails.
  const voiceKeyConfigured=Boolean(process.env.OPENAI_API_KEY?.trim());
 
- return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any} faltaMigracao={faltaMigracao}/>;
+ return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any} faltaMigracao={faltaMigracao}
+  usuario={{nome:nomeDoUsuario(user),email:String(user.email||'')}}/>;
 }

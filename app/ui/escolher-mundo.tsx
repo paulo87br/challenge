@@ -8,9 +8,11 @@ import Link from'next/link';
 import{ArrowRight}from'lucide-react';
 import{EntrarPorCodigo}from'./entrar-por-codigo';
 import type{MundoNoAr}from'@/lib/mundo/tipos';
+import{UsuarioSessao}from'./usuario-sessao';
 
-export function EscolherMundo({mundos,titulo='Em qual mundo você vai entrar?',descricao,faltaMigracao}:{
- mundos:MundoNoAr[];titulo?:string;descricao?:string;faltaMigracao?:boolean}){
+export function EscolherMundo({mundos,titulo='Em qual mundo você vai entrar?',descricao,faltaMigracao,usuario}:{
+ mundos:MundoNoAr[];titulo?:string;descricao?:string;faltaMigracao?:boolean;
+ usuario?:{nome:string;email:string}|null}){
  return <main className="entrada">
   <div className="entrada-caixa">
    <div className="brand"><span className="brand-mark">C</span>Challenge</div>
@@ -35,6 +37,7 @@ export function EscolherMundo({mundos,titulo='Em qual mundo você vai entrar?',d
 
    <div className="entrada-ou"><span>ou digite o código</span></div>
    <EntrarPorCodigo autoFocus={mundos.length===0}/>
+   {usuario&&<UsuarioSessao nome={usuario.nome} email={usuario.email}/>}
   </div>
  </main>;
 }

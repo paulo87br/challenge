@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{nomeDoUsuario}from'@/lib/mundo/usuario';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{NoAccess}from'./no-access';
 
@@ -33,7 +34,9 @@ export default async function Painel(){
   <header className="painel-head">
    <div><div className="eyebrow">CHALLENGE · INSTRUTOR</div><h1 className="h1">Sessões</h1>
    <p className="muted">Cada linha é o Challenge de uma pessoa. A evidência é observação, não nota: leia junto com o que a pessoa realmente fez.</p></div>
-   <div style={{display:'flex',gap:10,alignItems:'center'}}><span className="tag">{sessions?.length||0} sessões</span><Link href="/painel/turma" className="btn">Ver a turma</Link></div>
+   <div className="painel-head-acoes"><span className="tag">{sessions?.length||0} sessões</span>
+    <Link href="/painel/turma" className="btn">Ver a turma</Link>
+    <UsuarioSessao nome={nomeDoUsuario(user)} email={String(user.email||'')} compacto/></div>
   </header>
   {!sessions?.length&&<div className="panel"><p className="muted">Nenhuma sessão registrada ainda.</p></div>}
   <div className="painel-list">

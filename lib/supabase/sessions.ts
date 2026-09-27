@@ -3,14 +3,16 @@ import type{Debrief,EngineLog,EvidenceSignal,TurnDiagnostic,WorldState}from'@/li
 import{defaultScenario,worldFromScenario,type ScenarioConfig}from'@/lib/simulation/scenario';
 import{codigoValido,normalizaCodigo}from'@/lib/mundo/codigo';
 import type{MundoNoAr}from'@/lib/mundo/tipos';
+import{nomeDoUsuario}from'@/lib/mundo/usuario';
 
 export type SessionRow={id:string;world_state:WorldState|Record<string,never>;debrief:Debrief|null;status:string};
-export type SessionBundle={session:SessionRow;scenario:ScenarioConfig;evidenceCount:number};
+export type Usuario={nome:string;email:string};
+export type SessionBundle={session:SessionRow;scenario:ScenarioConfig;evidenceCount:number;usuario?:Usuario};
 // Um mundo no ar é um cenário em que alguém pode entrar agora. Com mais de um
 // no ar ao mesmo tempo, "qual mundo" deixa de ser dedutível e passa a ser uma
 // escolha: por código, por link, ou na lista que o /lab mostra.
 export type{MundoNoAr};
-export type Entrada=SessionBundle|{escolha:MundoNoAr[];faltaMigracao?:boolean};
+export type Entrada=SessionBundle|{escolha:MundoNoAr[];faltaMigracao?:boolean;usuario?:Usuario};
 export function pedeEscolha(entrada:Entrada|null):entrada is{escolha:MundoNoAr[];faltaMigracao?:boolean}{
  return Boolean(entrada&&'escolha'in entrada);
 }
@@ -72,7 +74,8 @@ export async function ensureSession():Promise<Entrada|null>{
   // Counted with the service role on purpose: the policies give the participant
   // no read on evidence, which is what keeps them from grading themselves. They
   // are still owed the number, or the closing screen tells them they have none.
-  return comEvidencia(supabase,{...existing,world_state:world},scenario);
+  return{...await comEvidencia(supabase,{...existing,world_state:world},scenario),
+   usuario:{nome:nomeDoUsuario(user),email:String(user.email||'')}};
  }
  // Sem sessão em andamento, qual mundo começar deixou de ter resposta única.
  // Com um só no ar, entrar direto é o que sempre aconteceu e continua: não há
@@ -80,8 +83,9 @@ export async function ensureSession():Promise<Entrada|null>{
  // primeiro colocaria alguém no mundo errado sem ela perceber, que é justamente
  // o problema que o código de acesso existe para resolver.
  const{mundos,faltaMigracao}=await mundosNoAr(supabase);
- if(mundos.length!==1)return{escolha:mundos,faltaMigracao};
- return criarSessao(supabase,user.id,await loadScenario(supabase,mundos[0].key));
+ const usuario={nome:nomeDoUsuario(user),email:String(user.email||'')};
+ if(mundos.length!==1)return{escolha:mundos,faltaMigracao,usuario};
+ return{...await criarSessao(supabase,user.id,await loadScenario(supabase,mundos[0].key)),usuario};
 }
 
 async function criarSessao(supabase:any,userId:string,scenario:ScenarioConfig):Promise<SessionBundle>{

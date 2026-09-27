@@ -7,12 +7,12 @@ export async function POST(){
   if(!entrada)return NextResponse.json({configured:false});
   // Mais de um mundo no ar e nenhuma sessão em andamento: não há o que deduzir,
   // e o /lab pergunta em vez de escolher pela pessoa.
-  if(pedeEscolha(entrada))return NextResponse.json({configured:true,escolha:entrada.escolha,faltaMigracao:Boolean(entrada.faltaMigracao)});
+  if(pedeEscolha(entrada))return NextResponse.json({configured:true,escolha:entrada.escolha,faltaMigracao:Boolean(entrada.faltaMigracao),usuario:entrada.usuario||null});
   const bundle=entrada;
   // The workspace needs the engine choice and the artifact list to drive a turn;
   // it never needs the rest of the authored scenario.
   const{provider,model,artifacts,competencies,news,calls_enabled,duration_minutes}=bundle.scenario;
-  return NextResponse.json({configured:true,session:bundle.session,
+  return NextResponse.json({configured:true,session:bundle.session,usuario:bundle.usuario||null,
    mundo:{key:bundle.scenario.key,title:bundle.scenario.title},
    engine:{provider,model},artifacts:artifacts||[],competencies:(competencies?.length?competencies:defaultScenario.competencies)||[],news:(news?.length?news:defaultScenario.news)||[],callsEnabled:Boolean(calls_enabled),durationMinutes:duration_minutes,evidenceCount:bundle.evidenceCount??0});
  }catch(error){

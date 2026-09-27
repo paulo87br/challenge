@@ -1,4 +1,5 @@
 'use client';
+import{UsuarioSessao}from'@/app/ui/usuario-sessao';
 import{useState}from'react';import Link from 'next/link';
 import{SlidersHorizontal,Users,Bug,TriangleAlert,Check}from'lucide-react';
 import{ScenarioForm}from'./scenario-form';import{LimitsEditor,type RateLimit}from'./limits-editor';
@@ -16,7 +17,7 @@ export type TurnRow={id:string;requestId:string;createdAt:string;severity:string
 const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug},{id:'incidentes',label:'Incidentes',Icon:TriangleAlert}];
 const when=(value:string|null)=>value?new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 
-export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean}){
+export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao,usuario}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean;usuario?:{nome:string;email:string}}){
  const[tab,setTab]=useState('cenario');
  const[resolving,setResolving]=useState('');
  async function resolver(id:string){setResolving(id);await fetch('/api/admin/incident',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});location.reload()}
@@ -28,7 +29,10 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
   <header className="painel-head">
    <div><div className="eyebrow">CHALLENGE · STUDIO</div><h1 className="h1">{scenario.title}</h1>
    <p className="muted">Você monta o mundo aqui. O motor cuida de fazer a história reagir.</p></div>
-   <Link href="/lab" className="btn">Ver como participante</Link>
+   <div className="painel-head-acoes">
+    <Link href="/lab" className="btn">Ver como participante</Link>
+    {usuario&&<UsuarioSessao nome={usuario.nome} email={usuario.email} compacto/>}
+   </div>
   </header>
 
   <div className="console-summary">
