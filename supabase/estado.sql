@@ -20,7 +20,12 @@ with checagens(migracao, o_que_cria, presente) as (values
  ('013 sessão pausada',      'status aceita paused',    exists(select 1 from pg_constraint where conname='challenge_sessions_status_check' and pg_get_constraintdef(oid) like '%paused%')),
  ('014 templates',           'scenarios.is_template',   exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='is_template')),
  ('015 caso jurídico',       'cenário juridico',        exists(select 1 from public.challenge_scenarios where key='juridico')),
- ('016 muitos mundos no ar', 'scenarios.join_code',     exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='join_code'))
+ ('016 muitos mundos no ar', 'scenarios.join_code',     exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='join_code')),
+ -- A 017 muda dado, não schema: o sinal é a imprensa ter deixado de ser
+ -- hora do dia. Nenhuma notícia em minuto alto significa que já converteu.
+ ('017 imprensa no tempo',   'news.at em minutos',      not exists(
+   select 1 from public.challenge_scenarios s, jsonb_array_elements(coalesce(s.news,'[]'::jsonb)) n
+    where (n->>'at')::int > 240))
 )
 select
  case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,
