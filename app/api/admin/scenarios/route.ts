@@ -29,7 +29,7 @@ export async function GET(){
  const{supabase,erro}=await instrutor() as any;
  if(erro)return erro;
  const{data,error}=await supabase.from('challenge_scenarios')
-  .select('key,title,domain,seat_role,is_template,active,created_from,created_at,updated_at')
+  .select('key,title,domain,seat_role,is_template,active,created_from,created_at,updated_at,join_code')
   .order('is_template').order('created_at',{ascending:false});
  if(error)return NextResponse.json({error:'list_failed',detail:error.message},{status:500});
  return NextResponse.json({scenarios:data||[]});
@@ -41,7 +41,10 @@ export async function POST(req:Request){
  try{
   const{action,sourceKey,title}=await req.json();
   const{data:source}=await supabase.from('challenge_scenarios').select(CAMPOS).eq('key',sourceKey).maybeSingle();
-  if(!source&&action!=='activate')return NextResponse.json({error:'source_not_found'},{status:404});
+  // Sem exceção por ação: antes 'activate' passava por aqui com a chave
+  // inexistente e devolvia 200 sem ter feito nada, que é o tipo de silêncio que
+  // este projeto já pagou caro três vezes.
+  if(!source)return NextResponse.json({error:'source_not_found'},{status:404});
 
   if(action==='save_template'){
    const nome=String(title||'').trim()||`${source.title} (template)`;
@@ -63,18 +66,26 @@ export async function POST(req:Request){
    return NextResponse.json({created:true,key:nova,title:nome});
   }
 
+  // Desde a 016 mais de um mundo pode estar no ar: colocar um não tira o outro.
+  // Quantos ficam no ar é decisão de quem conduz, não do schema — duas turmas em
+  // cenários diferentes na mesma semana era o caso que não cabia antes.
   if(action==='activate'){
-   // Deactivate first: the unique index allows exactly one live scenario, and
-   // doing it in the other order fails on the constraint.
-   await supabase.from('challenge_scenarios').update({active:false}).eq('active',true).eq('is_template',false);
    const{error}=await supabase.from('challenge_scenarios').update({active:true}).eq('key',sourceKey).eq('is_template',false);
    if(error)throw new Error(error.message);
    return NextResponse.json({activated:sourceKey});
   }
 
+  if(action==='deactivate'){
+   // Sessões em andamento guardam o scenario_key: tirar do ar fecha a porta
+   // para quem ainda não entrou, sem interromper quem está dentro.
+   const{error}=await supabase.from('challenge_scenarios').update({active:false}).eq('key',sourceKey);
+   if(error)throw new Error(error.message);
+   return NextResponse.json({deactivated:sourceKey});
+  }
+
   if(action==='delete'){
    if(source.active)return NextResponse.json({error:'cannot_delete_active',
-    detail:'Ative outro cenário antes de apagar este.'},{status:409});
+    detail:'Tire este mundo do ar antes de apagá-lo.'},{status:409});
    // Sessions keep their scenario_key, so an old run would lose the world it
    // was played in. Refuse rather than orphan somebody's history.
    const{count}=await supabase.from('challenge_sessions').select('id',{count:'exact',head:true}).eq('scenario_key',sourceKey);

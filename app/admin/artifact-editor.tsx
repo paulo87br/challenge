@@ -1,5 +1,6 @@
 'use client';
-import{useState}from'react';import{ChevronDown,FilePlus2,Trash2}from'lucide-react';
+import{useState}from'react';
+import{useDialogo}from'@/app/ui/dialogo';import{ChevronDown,FilePlus2,Trash2}from'lucide-react';
 import type{Character}from'@/lib/simulation/types';
 import type{ScenarioArtifact}from'@/lib/simulation/scenario-world';
 
@@ -9,13 +10,17 @@ export function ArtifactEditor({artifacts,characters,onChange}:{
  artifacts:ScenarioArtifact[];characters:Character[];onChange:(next:ScenarioArtifact[])=>void;
 }){
  const[openIndex,setOpenIndex]=useState(-1);
+ const{confirmar,elemento:dialogo}=useDialogo();
  const patch=(index:number,change:Partial<ScenarioArtifact>)=>onChange(artifacts.map((a,i)=>i===index?{...a,...change}:a));
  function add(){
   onChange([...artifacts,{name:'',ownerId:characters[0]?.id||'',body:'',keywords:[]}]);
   setOpenIndex(artifacts.length);
  }
- function remove(index:number,name:string){
-  if(!window.confirm(`Remover ${name||'este documento'} do cenário?`))return;
+ async function remove(index:number,name:string){
+  const ok=await confirmar({titulo:`Remover ${name||'este documento'}?`,
+   texto:'Sai do cenário: ninguém mais o encontra nos arquivos nem pode pedi-lo a uma persona.',
+   rotuloOk:'Remover',perigo:true});
+  if(!ok)return;
   onChange(artifacts.filter((_,i)=>i!==index));setOpenIndex(-1);
  }
  const ownerName=(id:string)=>characters.find(person=>person.id===id)?.name||'sem dono';
@@ -63,5 +68,6 @@ export function ArtifactEditor({artifacts,characters,onChange}:{
     </div>}
    </div>;
   })}</div>
+  {dialogo}
  </section>;
 }

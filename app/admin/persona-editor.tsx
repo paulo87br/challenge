@@ -1,5 +1,6 @@
 'use client';
-import{useState}from'react';import{ChevronDown,Copy,Trash2,UserPlus}from'lucide-react';
+import{useState}from'react';
+import{useDialogo}from'@/app/ui/dialogo';import{ChevronDown,Copy,Trash2,UserPlus}from'lucide-react';
 import type{Character}from'@/lib/simulation/types';import{REALTIME_VOICES,VOICE_LABELS,resolveVoice}from'@/lib/call/voices';
 
 const TRAITS:Array<{key:keyof Character['traits'];label:string}>=[
@@ -24,6 +25,7 @@ export function PersonaEditor({characters,onChange,usingDefaults,callsEnabled}:{
  // One open at a time. A cast of eight with every field expanded is the state
  // this screen was in before, and it made the rest of the Studio unreachable.
  const[openId,setOpenId]=useState('');
+ const{confirmar,elemento:dialogo}=useDialogo();
  const patch=(index:number,change:Partial<Character>)=>onChange(characters.map((c,i)=>i===index?{...c,...change}:c));
  const patchState=(index:number,change:Partial<Character['state']>)=>
   onChange(characters.map((c,i)=>i===index?{...c,state:{...c.state,...change}}:c));
@@ -32,8 +34,11 @@ export function PersonaEditor({characters,onChange,usingDefaults,callsEnabled}:{
   const copy={...person,id:`persona-${Date.now().toString(36)}`,name:`${person.name} (cópia)`};
   onChange([...characters,copy]);setOpenId(copy.id);
  }
- function remove(person:Character){
-  if(!window.confirm(`Remover ${person.name||'esta persona'} do mundo?`))return;
+ async function remove(person:Character){
+  const ok=await confirmar({titulo:`Remover ${person.name||'esta persona'}?`,
+   texto:'Ela sai do mundo e para de aparecer nas telas de quem entrar daqui em diante.',
+   rotuloOk:'Remover',perigo:true});
+  if(!ok)return;
   onChange(characters.filter(c=>c.id!==person.id));
   if(openId===person.id)setOpenId('');
  }
@@ -115,5 +120,6 @@ export function PersonaEditor({characters,onChange,usingDefaults,callsEnabled}:{
     </div>}
    </div>;
   })}</div>
+  {dialogo}
  </section>;
 }

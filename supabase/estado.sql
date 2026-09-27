@@ -19,7 +19,8 @@ with checagens(migracao, o_que_cria, presente) as (values
  ('012 chamadas',            'challenge_calls',         to_regclass('public.challenge_calls')         is not null),
  ('013 sessão pausada',      'status aceita paused',    exists(select 1 from pg_constraint where conname='challenge_sessions_status_check' and pg_get_constraintdef(oid) like '%paused%')),
  ('014 templates',           'scenarios.is_template',   exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='is_template')),
- ('015 caso jurídico',       'cenário juridico',        exists(select 1 from public.challenge_scenarios where key='juridico'))
+ ('015 caso jurídico',       'cenário juridico',        exists(select 1 from public.challenge_scenarios where key='juridico')),
+ ('016 muitos mundos no ar', 'scenarios.join_code',     exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='join_code'))
 )
 select
  case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,

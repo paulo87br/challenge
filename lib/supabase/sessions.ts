@@ -1,9 +1,37 @@
 import{createSupabaseAdminClient,createSupabaseServerClient}from'./server';
 import type{Debrief,EngineLog,EvidenceSignal,TurnDiagnostic,WorldState}from'@/lib/simulation/types';
 import{defaultScenario,worldFromScenario,type ScenarioConfig}from'@/lib/simulation/scenario';
+import{codigoValido,normalizaCodigo}from'@/lib/mundo/codigo';
+import type{MundoNoAr}from'@/lib/mundo/tipos';
 
 export type SessionRow={id:string;world_state:WorldState|Record<string,never>;debrief:Debrief|null;status:string};
 export type SessionBundle={session:SessionRow;scenario:ScenarioConfig;evidenceCount:number};
+// Um mundo no ar é um cenário em que alguém pode entrar agora. Com mais de um
+// no ar ao mesmo tempo, "qual mundo" deixa de ser dedutível e passa a ser uma
+// escolha: por código, por link, ou na lista que o /lab mostra.
+export type{MundoNoAr};
+export type Entrada=SessionBundle|{escolha:MundoNoAr[];faltaMigracao?:boolean};
+export function pedeEscolha(entrada:Entrada|null):entrada is{escolha:MundoNoAr[];faltaMigracao?:boolean}{
+ return Boolean(entrada&&'escolha'in entrada);
+}
+
+const CAMPOS_MUNDO='key,title,domain,seat_role,mission';
+
+/**
+ * Antes da 016 não existe join_code e a consulta com ele erra. Cair para a
+ * consulta sem o código mantém o /lab de pé para quem está no meio de uma
+ * sessão, e `faltaMigracao` faz o Studio dizer em voz alta o que falta — que é
+ * o oposto do que aconteceu três vezes neste projeto, em que a migração não
+ * aplicada apareceu como um recurso inerte e nenhum erro em lugar nenhum.
+ */
+export async function mundosNoAr(supabase:any):Promise<{mundos:MundoNoAr[];faltaMigracao:boolean}>{
+ const filtro=(q:any)=>q.eq('active',true).eq('is_template',false).order('title');
+ const{data,error}=await filtro(supabase.from('challenge_scenarios').select(`${CAMPOS_MUNDO},join_code`));
+ if(!error)return{mundos:(data||[]) as MundoNoAr[],faltaMigracao:false};
+ const{data:sem,error:erroSem}=await filtro(supabase.from('challenge_scenarios').select(CAMPOS_MUNDO));
+ if(erroSem)return{mundos:[],faltaMigracao:true};
+ return{mundos:(sem||[]).map((m:any)=>({...m,join_code:null})),faltaMigracao:true};
+}
 
 // Returns null whenever Supabase is not configured or nobody is signed in, so
 // every caller degrades into the local-only mode the app already supports.
@@ -25,7 +53,7 @@ async function loadScenario(supabase:any,scenarioKey?:string):Promise<ScenarioCo
  return legado?{...defaultScenario,...legado,temperature:legado.temperature||{}}:defaultScenario;
 }
 
-export async function ensureSession():Promise<SessionBundle|null>{
+export async function ensureSession():Promise<Entrada|null>{
  const supabase=createSupabaseServerClient();
  if(!supabase)return null;
  const{data:{user}}=await supabase.auth.getUser();
@@ -44,41 +72,106 @@ export async function ensureSession():Promise<SessionBundle|null>{
   // Counted with the service role on purpose: the policies give the participant
   // no read on evidence, which is what keeps them from grading themselves. They
   // are still owed the number, or the closing screen tells them they have none.
-  const admin=createSupabaseAdminClient();
-  const{count}=admin
-   ?await admin.from('challenge_evidence').select('id',{count:'exact',head:true}).eq('session_id',existing.id)
-   :{count:0};
-  return{session:{...existing,world_state:world} as SessionRow,scenario,evidenceCount:count||0};
+  return comEvidencia(supabase,{...existing,world_state:world},scenario);
  }
+ // Sem sessão em andamento, qual mundo começar deixou de ter resposta única.
+ // Com um só no ar, entrar direto é o que sempre aconteceu e continua: não há
+ // escolha a fazer. Com vários, escolher é da pessoa — silenciosamente pegar o
+ // primeiro colocaria alguém no mundo errado sem ela perceber, que é justamente
+ // o problema que o código de acesso existe para resolver.
+ const{mundos,faltaMigracao}=await mundosNoAr(supabase);
+ if(mundos.length!==1)return{escolha:mundos,faltaMigracao};
+ return criarSessao(supabase,user.id,await loadScenario(supabase,mundos[0].key));
+}
+
+async function criarSessao(supabase:any,userId:string,scenario:ScenarioConfig):Promise<SessionBundle>{
  // A new world is built from the authored scenario. Sessions already running
  // keep the world they were played in: editing the Studio must not rewrite
  // somebody else's history mid-run.
  const{data:created,error}=await supabase.from('challenge_sessions')
-  .insert({user_id:user.id,scenario_key:scenario.key,world_state:worldFromScenario(scenario)})
+  .insert({user_id:userId,scenario_key:scenario.key,world_state:worldFromScenario(scenario)})
   .select('id,world_state,debrief,status').single();
  if(error)throw new Error(error.message);
  return{session:created as SessionRow,scenario,evidenceCount:0};
 }
 
+/**
+ * Entrar por código, que é o caminho do projetor e do link. O código identifica
+ * o mundo, não a sessão: duas turmas no mesmo cenário compartilham o código e
+ * cada pessoa continua tendo a sua sessão.
+ */
+export async function entrarNoMundo(codigoCru:string,abandonarAtual=false):Promise<
+ SessionBundle|{erro:'codigo_invalido'|'codigo_nao_encontrado'}|{conflito:{atual:MundoNoAr;novo:MundoNoAr}}|null>{
+ const supabase=createSupabaseServerClient();
+ if(!supabase)return null;
+ const{data:{user}}=await supabase.auth.getUser();
+ if(!user)return null;
+ const codigo=normalizaCodigo(codigoCru);
+ if(!codigoValido(codigo))return{erro:'codigo_invalido'};
+
+ const{mundos}=await mundosNoAr(supabase);
+ const destino=mundos.find(m=>m.join_code===codigo);
+ if(!destino)return{erro:'codigo_nao_encontrado'};
+
+ const{data:emAndamento}=await supabase.from('challenge_sessions')
+  .select('id,world_state,debrief,status,scenario_key').eq('user_id',user.id).in('status',['active','paused'])
+  .order('started_at',{ascending:false}).limit(1).maybeSingle();
+
+ if(emAndamento){
+  // Mesmo mundo: o código é só o caminho de volta, nada a decidir.
+  if(emAndamento.scenario_key===destino.key){
+   const scenario=await loadScenario(supabase,destino.key);
+   return {...(await comEvidencia(supabase,emAndamento,scenario))};
+  }
+  // Outro mundo: trocar descarta uma corrida em andamento, e isso não se faz
+  // por dedução. Quem decide é a pessoa, na tela, sabendo o que perde.
+  if(!abandonarAtual){
+   const atual=mundos.find(m=>m.key===emAndamento.scenario_key)
+    ||{key:emAndamento.scenario_key,title:(emAndamento.world_state as any)?.title||emAndamento.scenario_key,
+       domain:'',seat_role:'',mission:'',join_code:null};
+   return{conflito:{atual,novo:destino}};
+  }
+  // Guardada, não apagada: uma corrida abandonada ainda é algo que o instrutor
+  // pode querer olhar, e a evidência presa a ela não é da pessoa para apagar.
+  await supabase.from('challenge_sessions')
+   .update({status:'abandoned',completed_at:new Date().toISOString()})
+   .eq('user_id',user.id).in('status',['active','paused']);
+ }
+ return criarSessao(supabase,user.id,await loadScenario(supabase,destino.key));
+}
+
 // Restarting has to reach the database. Resetting only the browser left the
 // old session as the server's truth, so the next page load brought the
 // abandoned world straight back.
+// Counted with the service role on purpose: the policies give the participant
+// no read on evidence, which is what keeps them from grading themselves. They
+// are still owed the number, or the closing screen tells them they have none.
+async function comEvidencia(_supabase:any,session:any,scenario:ScenarioConfig):Promise<SessionBundle>{
+ const admin=createSupabaseAdminClient();
+ const{count}=admin
+  ?await admin.from('challenge_evidence').select('id',{count:'exact',head:true}).eq('session_id',session.id)
+  :{count:0};
+ return{session:session as SessionRow,scenario,evidenceCount:count||0};
+}
+
 export async function restartSession():Promise<SessionBundle|null>{
  const supabase=createSupabaseServerClient();
  if(!supabase)return null;
  const{data:{user}}=await supabase.auth.getUser();
  if(!user)return null;
+ // Recomeçar é recomeçar o mesmo desafio, não pular de mundo. Com vários no ar,
+ // pegar "o ativo" daria a quem clica em recomeçar um mundo diferente do que
+ // estava jogando, sem pedir nada.
+ const{data:atual}=await supabase.from('challenge_sessions')
+  .select('scenario_key').eq('user_id',user.id).in('status',['active','paused'])
+  .order('started_at',{ascending:false}).limit(1).maybeSingle();
  // Kept, not deleted: an abandoned run is still something the instructor may
  // want to look at, and the evidence attached to it is not the person's to erase.
  await supabase.from('challenge_sessions')
   .update({status:'abandoned',completed_at:new Date().toISOString()})
   .eq('user_id',user.id).in('status',['active','paused']);
- const scenario=await loadScenario(supabase);
- const{data:created,error}=await supabase.from('challenge_sessions')
-  .insert({user_id:user.id,scenario_key:scenario.key,world_state:worldFromScenario(scenario)})
-  .select('id,world_state,debrief,status').single();
- if(error)throw new Error(error.message);
- return{session:created as SessionRow,scenario,evidenceCount:0};
+ const scenario=await loadScenario(supabase,atual?.scenario_key);
+ return criarSessao(supabase,user.id,scenario);
 }
 
 export async function saveSessionState(sessionId:string,patch:{world?:WorldState;debrief?:Debrief|null;status?:string}){

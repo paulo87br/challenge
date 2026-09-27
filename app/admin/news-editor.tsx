@@ -1,5 +1,6 @@
 'use client';
-import{useState}from'react';import{ChevronDown,Newspaper,Trash2}from'lucide-react';
+import{useState}from'react';
+import{useDialogo}from'@/app/ui/dialogo';import{ChevronDown,Newspaper,Trash2}from'lucide-react';
 import type{NewsItem}from'@/lib/simulation/types';
 
 const clock=(at:number)=>`${String(Math.floor(at/60)%24).padStart(2,'0')}:${String(at%60).padStart(2,'0')}`;
@@ -7,13 +8,17 @@ const toMinutes=(value:string)=>{const[h,m]=value.split(':').map(Number);return(
 
 export function NewsEditor({news,onChange}:{news:NewsItem[];onChange:(next:NewsItem[])=>void}){
  const[openId,setOpenId]=useState('');
+ const{confirmar,elemento:dialogo}=useDialogo();
  const patch=(index:number,change:Partial<NewsItem>)=>onChange(news.map((item,i)=>i===index?{...item,...change}:item));
  function add(){
   const item:NewsItem={id:`news-${Date.now().toString(36)}`,source:'',at:9*60,tag:'Notícia',headline:'',summary:'',article:''};
   onChange([...news,item]);setOpenId(item.id);
  }
- function remove(item:NewsItem){
-  if(!window.confirm(`Remover "${item.headline||'esta notícia'}" do feed?`))return;
+ async function remove(item:NewsItem){
+  const ok=await confirmar({titulo:`Remover "${item.headline||'esta notícia'}"?`,
+   texto:'Sai do feed do cenário e deixa de ser publicada durante as sessões.',
+   rotuloOk:'Remover',perigo:true});
+  if(!ok)return;
   onChange(news.filter(entry=>entry.id!==item.id));if(openId===item.id)setOpenId('');
  }
 
@@ -55,5 +60,6 @@ export function NewsEditor({news,onChange}:{news:NewsItem[];onChange:(next:NewsI
     </div>}
    </div>;
   })}</div>
+  {dialogo}
  </section>;
 }

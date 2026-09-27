@@ -7,7 +7,11 @@ import type{AssistantMessage,Debrief,EvidenceSignal,UploadedFile,WorldState}from
 // implementation and the rest of the app does not change.
 const KEY='challenge.session.v1';
 
-export type StoredSession={world:WorldState;evidence:EvidenceSignal[];assistant:AssistantMessage[];uploads:UploadedFile[];debrief:Debrief|null;elapsedMs:number;paused:boolean;savedAt:number};
+export type StoredSession={world:WorldState;evidence:EvidenceSignal[];assistant:AssistantMessage[];uploads:UploadedFile[];debrief:Debrief|null;elapsedMs:number;paused:boolean;savedAt:number;
+ // De qual sessão é o que está guardado aqui. Sem isso, entrar em outro mundo
+ // faz o navegador servir a corrida anterior por cima da sessão nova: o
+ // conteúdo de um mundo rodando contra a sessão de outro, sem aviso.
+ sessionId?:string};
 
 export function loadSession():StoredSession|null{
  try{
@@ -16,7 +20,7 @@ export function loadSession():StoredSession|null{
   const parsed=JSON.parse(raw) as StoredSession;
   // A stored world from an older shape is worse than no world at all.
   if(!parsed?.world?.scenarioId||!Array.isArray(parsed.world.events))return null;
-  return{world:parsed.world,evidence:Array.isArray(parsed.evidence)?parsed.evidence:[],assistant:Array.isArray(parsed.assistant)?parsed.assistant:[],uploads:Array.isArray(parsed.uploads)?parsed.uploads:[],debrief:parsed.debrief||null,elapsedMs:Number(parsed.elapsedMs)||0,paused:Boolean(parsed.paused),savedAt:parsed.savedAt||0};
+  return{sessionId:parsed.sessionId||'',world:parsed.world,evidence:Array.isArray(parsed.evidence)?parsed.evidence:[],assistant:Array.isArray(parsed.assistant)?parsed.assistant:[],uploads:Array.isArray(parsed.uploads)?parsed.uploads:[],debrief:parsed.debrief||null,elapsedMs:Number(parsed.elapsedMs)||0,paused:Boolean(parsed.paused),savedAt:parsed.savedAt||0};
  }catch{return null}
 }
 

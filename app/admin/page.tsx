@@ -6,7 +6,7 @@ import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-con
 export const dynamic='force-dynamic';
 export const metadata={title:'Studio · Challenge'};
 
-export default async function Admin(){
+export default async function Admin({searchParams}:{searchParams?:{cenario?:string}}){
  const supabase=createSupabaseServerClient();
  // Backstop for the middleware: a change to its matcher must not silently
  // open the Studio to participants.
@@ -16,13 +16,28 @@ export default async function Admin(){
  const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
  if(!isInstructor)redirect('/lab');
 
- // The Studio edits whichever world is live, not a key written into the code.
- // Before migration 014 the columns do not exist and the query errors, so the
- // original scenario is used rather than reverting the instructor to defaults.
- const{data:liveRow}=await supabase.from('challenge_scenarios').select('*').eq('active',true).eq('is_template',false).limit(1).maybeSingle();
- const{data:scenarioRow}=liveRow?{data:liveRow}:await supabase.from('challenge_scenarios').select('*').eq('key','atlas').maybeSingle();
- const{data:scenarioRows}=await supabase.from('challenge_scenarios')
-  .select('key,title,domain,seat_role,is_template,active,created_from,updated_at').order('created_at',{ascending:false});
+ // Com mais de um mundo no ar, "o cenário que o Studio edita" deixou de ser
+ // dedutível: ?cenario= diz qual. Sem ele, o primeiro no ar; sem nenhum no ar,
+ // o original — nunca os defaults compilados, que apagariam o que foi autorado.
+ // Antes da 014 as colunas não existem e a consulta erra, daí o mesmo caminho.
+ const pedido=typeof searchParams?.cenario==='string'?searchParams.cenario:'';
+ const{data:pedidoRow}=pedido
+  ?await supabase.from('challenge_scenarios').select('*').eq('key',pedido).maybeSingle()
+  :{data:null};
+ const{data:liveRow}=pedidoRow?{data:null}
+  :await supabase.from('challenge_scenarios').select('*').eq('active',true).eq('is_template',false).order('title').limit(1).maybeSingle();
+ const{data:scenarioRow}=pedidoRow?{data:pedidoRow}:liveRow?{data:liveRow}
+  :await supabase.from('challenge_scenarios').select('*').eq('key','atlas').maybeSingle();
+ // Antes da 016 não existe join_code. Cair para a consulta sem ele mantém o
+ // Studio de pé, e faltaMigracao faz a tela dizer o que falta em vez de deixar
+ // a funcionalidade parecendo quebrada sem explicação.
+ const LISTA='key,title,domain,seat_role,is_template,active,created_from,updated_at';
+ const{data:comCodigo,error:erroCodigo}=await supabase.from('challenge_scenarios')
+  .select(`${LISTA},join_code`).order('created_at',{ascending:false});
+ const{data:scenarioRows}=erroCodigo
+  ?await supabase.from('challenge_scenarios').select(LISTA).order('created_at',{ascending:false})
+  :{data:comCodigo};
+ const faltaMigracao=Boolean(erroCodigo);
  const scenario:ScenarioConfig=scenarioRow?{...defaultScenario,...scenarioRow,temperature:scenarioRow.temperature||{}}:defaultScenario;
 
  const[{data:sessions},{data:evidence},{data:telemetry},{data:turnRows}]=await Promise.all([
@@ -74,5 +89,5 @@ export default async function Admin(){
  // participant finds out by clicking a button that fails.
  const voiceKeyConfigured=Boolean(process.env.OPENAI_API_KEY?.trim());
 
- return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any}/>;
+ return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any} faltaMigracao={faltaMigracao}/>;
 }
