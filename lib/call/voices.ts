@@ -39,3 +39,15 @@ export function resolveVoice(character:Character,cast:Character[],fallback='mari
  const index=Math.max(0,sameRegister.findIndex(person=>person.id===character.id));
  return pool[index%pool.length]||fallback;
 }
+
+// A session created before voices existed carries a cast with no register.
+// Filling it in from the authored cast by id is what stops everyone already
+// mid-Challenge from keeping the wrong voice for the rest of the run.
+export function withVoiceRegisters(worldCast:Character[],authored:Character[]):Character[]{
+ return (worldCast||[]).map(person=>{
+  if((person as any).voiceRegister||(person as any).voice)return person;
+  const source=(authored||[]).find(other=>other.id===person.id);
+  if(!source)return person;
+  return{...person,voiceRegister:(source as any).voiceRegister,voice:(source as any).voice};
+ });
+}

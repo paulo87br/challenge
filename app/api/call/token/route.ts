@@ -2,7 +2,7 @@ import{NextResponse}from'next/server';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario}from'@/lib/simulation/scenario';
 import{scenarioCharacters}from'@/lib/simulation/scenario-world';
-import{callInstructions,mintCallSecret,REALTIME_MODEL}from'@/lib/call/realtime';import{resolveVoice}from'@/lib/call/voices';
+import{callInstructions,mintCallSecret,REALTIME_MODEL}from'@/lib/call/realtime';import{resolveVoice,withVoiceRegisters}from'@/lib/call/voices';
 import{classify,FAILURE_LABELS}from'@/lib/ai/errors';
 import{recordIncident}from'@/lib/queue/rate';
 
@@ -27,7 +27,8 @@ export async function POST(req:Request){
    return NextResponse.json({error:'calls_disabled',detail:'As chamadas por voz estão desligadas neste Challenge.'},{status:409});
 
   const world=(session.world_state||{}) as any;
-  const cast=world?.characters?.length?world.characters:scenarioCharacters(scenario);
+  const authored=scenarioCharacters(scenario);
+  const cast=withVoiceRegisters(world?.characters?.length?world.characters:authored,authored);
   const character=cast.find((person:any)=>person.id===characterId);
   if(!character)return NextResponse.json({error:'character_not_found'},{status:404});
   // A character who does not take calls does not take calls. The UI hides them;
