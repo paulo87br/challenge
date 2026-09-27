@@ -19,6 +19,9 @@ export type ScenarioConfig={
  // A imprensa do mundo. Vazia significa que o cenário não tem notícia própria.
  news:NewsItem[];
  calls_enabled:boolean;
+ call_minutes_per_call:number;
+ call_minutes_per_session:number;
+ call_voice:string;
 };
 
 export const defaultScenario:ScenarioConfig={
@@ -26,7 +29,7 @@ export const defaultScenario:ScenarioConfig={
  mission:'conduza a decisão sobre a entrada do assistente de IA em produção.',
  world_description:'Empresa de médio porte preparando um assistente de IA generativa para produção. Existe pressão executiva, documentação incompleta e sinais de uso de dados reais no piloto.',
  temperature:initialWorld.temperature,duration_minutes:30,provider:'openai',model:'gpt-5.6',
- characters:[],artifacts:[],knowledge:{},calls_enabled:false,
+ characters:[],artifacts:[],knowledge:{},calls_enabled:false,call_minutes_per_call:5,call_minutes_per_session:15,call_voice:'marin',
  // Same reasoning as the press below: an empty framework makes the Observer
  // unable to label anything and the profile unable to aggregate, so a
  // scenario that has not been authored still gets a working instrument.

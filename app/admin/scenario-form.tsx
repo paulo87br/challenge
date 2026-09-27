@@ -76,9 +76,23 @@ export function ScenarioForm({initial,defaultCast}:{initial:ScenarioConfig;defau
      onChange={e=>set({calls_enabled:e.target.checked})}/>
     <span><b>Permitir que o participante ligue para os personagens</b>
      <small>A voz é cobrada por minuto de áudio, não por token, então a fila que protege os turnos não a governa. Ligue quando quiser que a conversa por voz faça parte do Challenge — e acompanhe o consumo por fora.</small>
-     {form.provider==='groq'&&<small><b>Indisponível no Groq:</b> não há voz em tempo real no catálogo dele, e a camada gratuita não sustentaria o áudio.</small>}
+     {form.provider==='groq'&&<small><b>Indisponível no Groq:</b> não há voz em tempo real no catálogo dele, e o Orpheus, que é o sintetizador de lá, fala inglês e árabe — não português.</small>}
     </span>
    </label>
+   {form.calls_enabled&&<>
+    <p className="muted" style={{marginTop:14}}>A voz usa sempre a OpenAI, mesmo que os turnos rodem em outro provedor. A chave lida é <code>OPENAI_API_KEY</code>.</p>
+    <div className="field-grid">
+     <label><span>Minutos por chamada</span><input className="input" type="number" min={1} max={60}
+      value={form.call_minutes_per_call??5} onChange={e=>set({call_minutes_per_call:Number(e.target.value)||5})}/></label>
+     <label><span>Minutos por sessão</span><input className="input" type="number" min={1} max={240}
+      value={form.call_minutes_per_session??15} onChange={e=>set({call_minutes_per_session:Number(e.target.value)||15})}/></label>
+     <label><span>Voz padrão</span>
+      <select className="input" value={form.call_voice||'marin'} onChange={e=>set({call_voice:e.target.value})}>
+       <option value="marin">Marin</option><option value="cedar">Cedar</option>
+      </select></label>
+    </div>
+    <small className="muted">O teto por sessão é o que impede uma turma de gastar sem ninguém perceber — a fila que protege os turnos não enxerga áudio.</small>
+   </>}
   </section>
 
   <PersonaEditor characters={cast} usingDefaults={usingDefaults} onChange={next=>set({characters:next})}/>

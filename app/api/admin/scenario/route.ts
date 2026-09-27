@@ -26,6 +26,9 @@ export async function POST(req:Request){
    // Voice on Groq is a switch pointing at nothing; the UI disables it and
    // this refuses it, so a stale form cannot turn it on.
    calls_enabled:Boolean(body.calls_enabled)&&String(body.provider||'')!=='groq',
+   call_minutes_per_call:Math.min(60,Math.max(1,Number(body.call_minutes_per_call)||5)),
+   call_minutes_per_session:Math.min(240,Math.max(1,Number(body.call_minutes_per_session)||15)),
+   call_voice:['marin','cedar'].includes(String(body.call_voice))?String(body.call_voice):'marin',
    updated_by:user.id,updated_at:new Date().toISOString()
   };
   if(!row.title||!row.seat_role)return NextResponse.json({error:'invalid',detail:'Título e assento são obrigatórios.'},{status:400});
@@ -37,7 +40,7 @@ export async function POST(req:Request){
   // instructor is told exactly what was dropped rather than left guessing.
   const missing=/column .* does not exist|could not find the '.*' column/i.test(error.message);
   if(!missing)throw new Error(error.message);
-  const{provider,model,characters,artifacts,knowledge,competencies,news,calls_enabled,...base}=row;
+  const{provider,model,characters,artifacts,knowledge,competencies,news,calls_enabled,call_minutes_per_call,call_minutes_per_session,call_voice,...base}=row;
   const retry=await supabase.from('challenge_scenarios').upsert(base,{onConflict:'key'});
   if(retry.error)throw new Error(retry.error.message);
   return NextResponse.json({saved:true,partial:true,

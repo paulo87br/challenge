@@ -231,3 +231,11 @@
  .profile-row,.coverage-row,.class-row,.evidence-row{break-inside:avoid;page-break-inside:avoid}
  .replay{font-size:10px}
 }
+.call-live{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0}
+.call-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #e9e2f2;padding-bottom:13px}
+.call-avatar{width:44px;height:44px;font-size:13px}
+.call-head small{display:block;color:#756d82;margin-top:2px}
+.call-timer{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:800;font-size:13px;background:#eee9ff;border-radius:999px;padding:7px 13px}
+.call-timer.warn{background:#ffd9df;color:#9f1d32}
+.call-hangup{background:#ff4f91;color:#fff;border-color:#211a38}
+.call-transcript{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
