@@ -64,5 +64,9 @@ export default async function Admin(){
   occurrences:row.occurrences,attempts:row.attempts,firstSeenAt:row.first_seen_at,lastSeenAt:row.last_seen_at,
   label:FAILURE_LABELS[row.code as string]||row.code||'Falha'}));
 
- return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any}/>;
+ // Read on the server: the Studio can say the voice key is missing before the
+ // participant finds out by clicking a button that fails.
+ const voiceKeyConfigured=Boolean(process.env.OPENAI_API_KEY?.trim());
+
+ return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured}/>;
 }

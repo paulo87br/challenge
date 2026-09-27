@@ -23,9 +23,10 @@ export async function POST(req:Request){
    knowledge:body.knowledge&&typeof body.knowledge==='object'?body.knowledge:{},
    competencies:Array.isArray(body.competencies)?body.competencies.filter((c:any)=>c?.code&&c?.name):[],
    news:Array.isArray(body.news)?body.news.filter((n:any)=>n?.id):[],
-   // Voice on Groq is a switch pointing at nothing; the UI disables it and
-   // this refuses it, so a stale form cannot turn it on.
-   calls_enabled:Boolean(body.calls_enabled)&&String(body.provider||'')!=='groq',
+   // Voice always runs on OpenAI and reads OPENAI_API_KEY, which has nothing to
+   // do with which provider drives the turns. Coupling them forced anyone who
+   // wanted a call to move their whole engine off Groq.
+   calls_enabled:Boolean(body.calls_enabled),
    call_minutes_per_call:Math.min(60,Math.max(1,Number(body.call_minutes_per_call)||5)),
    call_minutes_per_session:Math.min(240,Math.max(1,Number(body.call_minutes_per_session)||15)),
    call_voice:['marin','cedar'].includes(String(body.call_voice))?String(body.call_voice):'marin',

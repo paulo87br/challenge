@@ -131,13 +131,13 @@ export function CallScreen({characters,sessionId,onFinished}:{
   <h2>Ligar para alguém</h2>
   <p className="muted">Uma ligação é uma conversa de verdade: a pessoa atende, interrompe, hesita. Ela só sabe o que sabe — e o que você contar durante a ligação.</p>
   {budget&&<p className="muted">Você já usou {mmss(budget.used)} dos {mmss(budget.total)} de chamada desta sessão.</p>}
-  {blocked&&<div className="runtime-error"><b>{blocked}.</b> Isso não se resolve tentando de novo; quem cuida do Challenge foi avisado.</div>}
+  {blocked&&<div className="runtime-error"><b>As chamadas estão indisponíveis: {blocked.toLowerCase()}.</b> Isso não se resolve tentando de novo — quem cuida do Challenge já foi avisado. O resto do seu trabalho segue normal.</div>}
   {error&&!blocked&&<div className="runtime-error">{error}</div>}
   {callable.length===0&&<p className="muted">Ninguém neste mundo atende ligações.</p>}
   {callable.map(person=><div className="person-line" key={person.id}>
    <div className="person-avatar">{person.name.split(' ').map(part=>part[0]).slice(0,2).join('')}</div>
    <div><b>{person.name}</b><small>{person.role}</small></div>
-   <button className="btn primary" onClick={()=>dial(person)}><Phone size={16}/>Ligar</button>
+   <button className="btn primary" disabled={Boolean(blocked)} onClick={()=>dial(person)}><Phone size={16}/>{blocked?'Indisponível':'Ligar'}</button>
   </div>)}
   <audio ref={audio} autoPlay hidden/>
  </section>;
