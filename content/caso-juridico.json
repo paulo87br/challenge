@@ -372,7 +372,7 @@
   {
    "id": "jur-post",
    "source": "Rede social · repercussão",
-   "at": 530,
+   "at": 0,
    "tag": "Repercussão",
    "headline": "Post de advogado sobre peça com precedentes inexistentes viraliza no meio jurídico",
    "summary": "A publicação não cita a empresa pelo nome, mas descreve o caso em detalhe suficiente para quem acompanha o setor identificar.",
@@ -381,7 +381,7 @@
   {
    "id": "jur-setor",
    "source": "Boletim Jurídico & Tecnologia",
-   "at": 500,
+   "at": 26,
    "tag": "Setor",
    "headline": "Departamentos jurídicos passam a exigir cláusula de uso de IA em contratos com escritórios",
    "summary": "Levantamento com áreas jurídicas de grandes empresas aponta movimento recente de revisão contratual com prestadores.",
@@ -390,7 +390,7 @@
   {
    "id": "jur-outra",
    "source": "Tecnologia & Negócios",
-   "at": 475,
+   "at": 14,
    "tag": "Mercado",
    "headline": "Empresa é notificada após dados de funcionários serem colados em ferramenta de IA gratuita",
    "summary": "O caso, em outro setor, envolveu planilha com dados de saúde enviada por um prestador terceirizado.",

@@ -34,8 +34,9 @@ export function fold(value:string){
 
 export function worldFor(scenario:ScenarioConfig|null):WorldState{
  const characters=scenarioCharacters(scenario);
- if(!scenario)return initialWorld;
+ if(!scenario)return{...initialWorld,startMinute:initialWorld.minute};
  return{...initialWorld,
+  startMinute:initialWorld.minute,
   title:scenario.title||initialWorld.title,
   seat:{...initialWorld.seat,role:scenario.seat_role||initialWorld.seat.role},
   temperature:{...initialWorld.temperature,...(scenario.temperature||{})},

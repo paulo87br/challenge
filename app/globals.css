@@ -473,3 +473,5 @@ body.modal-aberto{overflow:hidden}
  .codigo-input{font-size:22px;letter-spacing:.22em}
  .mundo-card{flex-wrap:wrap}
 }
+.campo-dica{display:block;margin-top:5px;color:#756d82;font-size:11px;line-height:1.4;font-weight:500}
+.feed-aguardando{margin:14px 2px 0;font-size:12px}
