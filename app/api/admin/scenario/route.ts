@@ -13,7 +13,7 @@ export async function POST(req:Request){
 
   const body=await req.json();
   const row={
-   key:String(body.key||'atlas'),title:String(body.title||'').trim(),domain:String(body.domain||'').trim(),
+   key:String(body.key||'').trim()||'atlas',title:String(body.title||'').trim(),domain:String(body.domain||'').trim(),
    seat_role:String(body.seat_role||'').trim(),mission:String(body.mission||''),
    world_description:String(body.world_description||''),temperature:body.temperature||{},
    duration_minutes:Number(body.duration_minutes)||30,

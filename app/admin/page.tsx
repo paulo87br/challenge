@@ -16,7 +16,13 @@ export default async function Admin(){
  const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
  if(!isInstructor)redirect('/lab');
 
- const{data:scenarioRow}=await supabase.from('challenge_scenarios').select('*').eq('key','atlas').maybeSingle();
+ // The Studio edits whichever world is live, not a key written into the code.
+ // Before migration 014 the columns do not exist and the query errors, so the
+ // original scenario is used rather than reverting the instructor to defaults.
+ const{data:liveRow}=await supabase.from('challenge_scenarios').select('*').eq('active',true).eq('is_template',false).limit(1).maybeSingle();
+ const{data:scenarioRow}=liveRow?{data:liveRow}:await supabase.from('challenge_scenarios').select('*').eq('key','atlas').maybeSingle();
+ const{data:scenarioRows}=await supabase.from('challenge_scenarios')
+  .select('key,title,domain,seat_role,is_template,active,created_from,updated_at').order('created_at',{ascending:false});
  const scenario:ScenarioConfig=scenarioRow?{...defaultScenario,...scenarioRow,temperature:scenarioRow.temperature||{}}:defaultScenario;
 
  const[{data:sessions},{data:evidence},{data:telemetry},{data:turnRows}]=await Promise.all([
@@ -68,5 +74,5 @@ export default async function Admin(){
  // participant finds out by clicking a button that fails.
  const voiceKeyConfigured=Boolean(process.env.OPENAI_API_KEY?.trim());
 
- return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured}/>;
+ return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any}/>;
 }

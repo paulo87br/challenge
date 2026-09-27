@@ -7,20 +7,33 @@ export type SessionBundle={session:SessionRow;scenario:ScenarioConfig;evidenceCo
 
 // Returns null whenever Supabase is not configured or nobody is signed in, so
 // every caller degrades into the local-only mode the app already supports.
-async function loadScenario(supabase:any,scenarioKey:string):Promise<ScenarioConfig>{
- const{data}=await supabase.from('challenge_scenarios').select('*').eq('key',scenarioKey).maybeSingle();
- return data?{...defaultScenario,...data,temperature:data.temperature||{}}:defaultScenario;
+async function loadScenario(supabase:any,scenarioKey?:string):Promise<ScenarioConfig>{
+ // A session already under way keeps its own scenario; a new one takes
+ // whichever is active. Activating a different world must not rewrite a run
+ // somebody is inside.
+ if(scenarioKey){
+  const{data}=await supabase.from('challenge_scenarios').select('*').eq('key',scenarioKey).maybeSingle();
+  if(data)return{...defaultScenario,...data,temperature:data.temperature||{}};
+ }
+ // Before migration 014 there is no "active" column, and the query errors.
+ // Falling through to the single original scenario keeps the world somebody
+ // authored instead of quietly reverting them to the compiled default.
+ const{data:live,error}=await supabase.from('challenge_scenarios')
+  .select('*').eq('active',true).eq('is_template',false).limit(1).maybeSingle();
+ if(!error&&live)return{...defaultScenario,...live,temperature:live.temperature||{}};
+ const{data:legado}=await supabase.from('challenge_scenarios').select('*').eq('key','atlas').maybeSingle();
+ return legado?{...defaultScenario,...legado,temperature:legado.temperature||{}}:defaultScenario;
 }
 
-export async function ensureSession(scenarioKey='atlas'):Promise<SessionBundle|null>{
+export async function ensureSession():Promise<SessionBundle|null>{
  const supabase=createSupabaseServerClient();
  if(!supabase)return null;
  const{data:{user}}=await supabase.auth.getUser();
  if(!user)return null;
  const{data:existing}=await supabase.from('challenge_sessions')
-  .select('id,world_state,debrief,status').eq('user_id',user.id).eq('status','active')
+  .select('id,world_state,debrief,status,scenario_key').eq('user_id',user.id).in('status',['active','paused'])
   .order('started_at',{ascending:false}).limit(1).maybeSingle();
- const scenario=await loadScenario(supabase,scenarioKey);
+ const scenario=await loadScenario(supabase,existing?.scenario_key);
  if(existing){
   // A session created before the Studio could author anything carries an empty
   // world. Filling it in is what makes the scenario reach someone who signed in
@@ -41,7 +54,7 @@ export async function ensureSession(scenarioKey='atlas'):Promise<SessionBundle|n
  // keep the world they were played in: editing the Studio must not rewrite
  // somebody else's history mid-run.
  const{data:created,error}=await supabase.from('challenge_sessions')
-  .insert({user_id:user.id,scenario_key:scenarioKey,world_state:worldFromScenario(scenario)})
+  .insert({user_id:user.id,scenario_key:scenario.key,world_state:worldFromScenario(scenario)})
   .select('id,world_state,debrief,status').single();
  if(error)throw new Error(error.message);
  return{session:created as SessionRow,scenario,evidenceCount:0};
@@ -50,7 +63,7 @@ export async function ensureSession(scenarioKey='atlas'):Promise<SessionBundle|n
 // Restarting has to reach the database. Resetting only the browser left the
 // old session as the server's truth, so the next page load brought the
 // abandoned world straight back.
-export async function restartSession(scenarioKey='atlas'):Promise<SessionBundle|null>{
+export async function restartSession():Promise<SessionBundle|null>{
  const supabase=createSupabaseServerClient();
  if(!supabase)return null;
  const{data:{user}}=await supabase.auth.getUser();
@@ -59,10 +72,10 @@ export async function restartSession(scenarioKey='atlas'):Promise<SessionBundle|
  // want to look at, and the evidence attached to it is not the person's to erase.
  await supabase.from('challenge_sessions')
   .update({status:'abandoned',completed_at:new Date().toISOString()})
-  .eq('user_id',user.id).eq('status','active');
- const scenario=await loadScenario(supabase,scenarioKey);
+  .eq('user_id',user.id).in('status',['active','paused']);
+ const scenario=await loadScenario(supabase);
  const{data:created,error}=await supabase.from('challenge_sessions')
-  .insert({user_id:user.id,scenario_key:scenarioKey,world_state:worldFromScenario(scenario)})
+  .insert({user_id:user.id,scenario_key:scenario.key,world_state:worldFromScenario(scenario)})
   .select('id,world_state,debrief,status').single();
  if(error)throw new Error(error.message);
  return{session:created as SessionRow,scenario,evidenceCount:0};

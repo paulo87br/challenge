@@ -269,3 +269,10 @@
 .paused-card{text-align:center;max-width:420px;padding:30px}
 .paused-card h2{margin:8px 0 10px}
 .paused-card p{line-height:1.65;color:#453e58;margin-bottom:18px}
+.switcher-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.switcher-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:2px solid #e7dfef;background:#fffdf8;border-radius:13px;padding:11px 13px}
+.switcher-row.active{border-color:#211a38;box-shadow:3px 3px 0 #12b89a}
+.switcher-name{flex:1;min-width:0}
+.switcher-name small{display:block;color:#756d82;font-size:11px;margin-top:2px}
+.switcher-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.switcher-heading{margin:22px 0 4px;font-size:15px}
