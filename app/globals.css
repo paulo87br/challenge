@@ -513,3 +513,6 @@ body.modal-aberto{overflow:hidden}
 .login-motivo{border:2px solid #f0b8c2;background:#fff6f7;border-radius:14px;padding:12px 14px;margin:16px 0 4px;text-align:left}
 .login-motivo b{display:block;font-size:13px;color:#9f1d32;margin-bottom:4px}
 .login-motivo span{display:block;font-size:12px;line-height:1.5;color:#7a4450}
+.mundo-janela{flex:1 1 100%;order:5;font-size:11px;color:#756d82;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.janela-horas{width:62px!important;padding:4px 6px;font-size:12px;text-align:center;border-width:1px}
+@media(max-width:900px){.mundo-janela{order:3}}

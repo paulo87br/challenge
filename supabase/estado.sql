@@ -25,7 +25,8 @@ with checagens(migracao, o_que_cria, presente) as (values
  -- hora do dia. Nenhuma notícia em minuto alto significa que já converteu.
  ('017 imprensa no tempo',   'news.at em minutos',      not exists(
    select 1 from public.challenge_scenarios s, jsonb_array_elements(coalesce(s.news,'[]'::jsonb)) n
-    where (n->>'at')::int > 240))
+    where (n->>'at')::int > 240)),
+ ('018 mundo expira',       'expirar_mundos_ociosos()', exists(select 1 from pg_proc where proname='challenge_expirar_mundos_ociosos'))
 )
 select
  case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,

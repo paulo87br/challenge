@@ -1,7 +1,7 @@
 import{redirect}from'next/navigation';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';import{initialWorld}from'@/lib/simulation/runtime';
-import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{FAILURE_LABELS}from'@/lib/ai/errors';
+import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{expirarMundosOciosos}from'@/lib/supabase/sessions';import{FAILURE_LABELS}from'@/lib/ai/errors';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'Studio · Challenge'};
@@ -20,6 +20,9 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  // dedutível: ?cenario= diz qual. Sem ele, o primeiro no ar; sem nenhum no ar,
  // o original — nunca os defaults compilados, que apagariam o que foi autorado.
  // Antes da 014 as colunas não existem e a consulta erra, daí o mesmo caminho.
+ // O Studio também é um momento em que a expiração precisa já ter valido:
+ // abrir a tela e ver no ar um mundo vencido seria mentir para quem conduz.
+ await expirarMundosOciosos();
  const pedido=typeof searchParams?.cenario==='string'?searchParams.cenario:'';
  const{data:pedidoRow}=pedido
   ?await supabase.from('challenge_scenarios').select('*').eq('key',pedido).maybeSingle()
@@ -31,13 +34,17 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  // Antes da 016 não existe join_code. Cair para a consulta sem ele mantém o
  // Studio de pé, e faltaMigracao faz a tela dizer o que falta em vez de deixar
  // a funcionalidade parecendo quebrada sem explicação.
+ // A degradação é em degraus, na ordem em que as colunas nasceram: pedir de uma
+ // vez tudo o que a 016 e a 018 criaram faria o Studio abrir vazio em qualquer
+ // banco que esteja uma migração atrás -- o contrário do que se quer de uma tela
+ // cuja função é justamente dizer o que falta.
  const LISTA='key,title,domain,seat_role,is_template,active,created_from,updated_at';
- const{data:comCodigo,error:erroCodigo}=await supabase.from('challenge_scenarios')
-  .select(`${LISTA},join_code`).order('created_at',{ascending:false});
- const{data:scenarioRows}=erroCodigo
-  ?await supabase.from('challenge_scenarios').select(LISTA).order('created_at',{ascending:false})
-  :{data:comCodigo};
- const faltaMigracao=Boolean(erroCodigo);
+ const tentar=(campos:string)=>supabase.from('challenge_scenarios').select(campos).order('created_at',{ascending:false});
+ const completo=await tentar(`${LISTA},join_code,live_since,auto_off_at,idle_hours`);
+ const comCodigo=completo.error?await tentar(`${LISTA},join_code`):completo;
+ const basico=comCodigo.error?await tentar(LISTA):comCodigo;
+ const scenarioRows=basico.data;
+ const faltaMigracao=Boolean(comCodigo.error);
  const scenario:ScenarioConfig=scenarioRow?{...defaultScenario,...scenarioRow,temperature:scenarioRow.temperature||{}}:defaultScenario;
 
  const[{data:sessions},{data:evidence},{data:telemetry},{data:turnRows}]=await Promise.all([

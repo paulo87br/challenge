@@ -12,6 +12,7 @@ export type SessionBundle={session:SessionRow;scenario:ScenarioConfig;evidenceCo
 // no ar ao mesmo tempo, "qual mundo" deixa de ser dedutível e passa a ser uma
 // escolha: por código, por link, ou na lista que o /lab mostra.
 export type{MundoNoAr};
+export{expirarMundosOciosos};
 export type Entrada=SessionBundle|{escolha:MundoNoAr[];faltaMigracao?:boolean;usuario?:Usuario};
 export function pedeEscolha(entrada:Entrada|null):entrada is{escolha:MundoNoAr[];faltaMigracao?:boolean}{
  return Boolean(entrada&&'escolha'in entrada);
@@ -26,7 +27,29 @@ const CAMPOS_MUNDO='key,title,domain,seat_role,mission';
  * o oposto do que aconteceu três vezes neste projeto, em que a migração não
  * aplicada apareceu como um recurso inerte e nenhum erro em lugar nenhum.
  */
+/**
+ * Tira do ar o que venceu, antes de dizer o que está no ar.
+ *
+ * Não há agendador neste projeto, e depender de um seria pior: o momento em que
+ * a expiração precisa valer é exatamente este, quando alguém pergunta onde
+ * pode entrar. Assim um mundo esquecido nunca chega a ser entrável, mesmo que
+ * nada rode entre uma visita e outra.
+ *
+ * Roda com a chave de serviço porque a função é do servidor -- nenhum
+ * participante tem, nem precisa ter, permissão de executá-la. Sem a chave, o
+ * app segue funcionando e a janela apenas não fecha sozinha.
+ */
+async function expirarMundosOciosos(){
+ const admin=createSupabaseAdminClient();
+ if(!admin)return;
+ const{error}=await admin.rpc('challenge_expirar_mundos_ociosos');
+ // Antes da 018 a função não existe. Falhar aqui não pode impedir alguém de
+ // entrar, mas sumir com o erro foi o que já custou caro neste projeto.
+ if(error)console.warn('expirar_mundos_ociosos',error.message);
+}
+
 export async function mundosNoAr(supabase:any):Promise<{mundos:MundoNoAr[];faltaMigracao:boolean}>{
+ await expirarMundosOciosos();
  const filtro=(q:any)=>q.eq('active',true).eq('is_template',false).order('title');
  const{data,error}=await filtro(supabase.from('challenge_scenarios').select(`${CAMPOS_MUNDO},join_code`));
  if(!error)return{mundos:(data||[]) as MundoNoAr[],faltaMigracao:false};

@@ -5,7 +5,11 @@ import{Modal,useDialogo}from'@/app/ui/dialogo';
 import{CodigoDoMundo}from'./codigo-do-mundo';
 
 export type ScenarioRow={key:string;title:string;domain:string;seat_role:string;
- is_template:boolean;active:boolean;created_from:string|null;updated_at:string|null;join_code?:string|null};
+ is_template:boolean;active:boolean;created_from:string|null;updated_at:string|null;join_code?:string|null;
+ live_since?:string|null;auto_off_at?:string|null;idle_hours?:number|null};
+
+const temJanela=(s:ScenarioRow)=>s.idle_hours!==undefined||s.live_since!==undefined;
+const quando=(iso?:string|null)=>iso?new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
 
 // Templates tendem a crescer — é a natureza deles, cada aula boa vira um. A
 // lista mostra os três mais recentes e o resto fica a um clique, em vez de
@@ -98,6 +102,19 @@ export function ScenarioSwitcher({scenarios,currentKey,faltaMigracao}:{
     <small>{[scenario.domain,scenario.seat_role].filter(Boolean).join(' · ')}
      {scenario.created_from?` · a partir de ${scenario.created_from}`:''}</small></span>
    {scenario.active&&<CodigoDoMundo codigo={scenario.join_code||null} titulo={scenario.title}/>}
+   {/* Antes da 018 estas colunas não vêm na consulta. Desenhar o campo assim
+       mesmo daria um controle que não controla nada: mexer nele falharia. */}
+   {temJanela(scenario)&&<span className="mundo-janela">
+    {scenario.active
+     ?<>no ar desde {quando(scenario.live_since)} · sai sozinho após{' '}
+       <input className="input janela-horas" type="number" min={1} max={720} disabled={Boolean(busy)}
+        defaultValue={scenario.idle_hours??24} aria-label={`Horas sem interação até ${scenario.title} sair do ar`}
+        onBlur={evento=>{const h=Number(evento.target.value)||24;
+         if(h!==(scenario.idle_hours??24))agir('janela',scenario.key,String(h))}}/> h sem interação</>
+     :scenario.auto_off_at
+      ?<>saiu do ar sozinho em {quando(scenario.auto_off_at)}, por {scenario.idle_hours??24} h sem interação</>
+      :null}
+   </span>}
    <span className="switcher-actions">
     {scenario.key!==currentKey&&<a className="btn" href={`/admin?cenario=${encodeURIComponent(scenario.key)}`}>
      <Pencil size={15}/>Editar</a>}

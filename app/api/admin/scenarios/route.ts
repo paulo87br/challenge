@@ -28,11 +28,16 @@ async function chaveLivre(supabase:any,base:string){
 export async function GET(){
  const{supabase,erro}=await instrutor() as any;
  if(erro)return erro;
- const{data,error}=await supabase.from('challenge_scenarios')
-  .select('key,title,domain,seat_role,is_template,active,created_from,created_at,updated_at,join_code')
+ const BASE='key,title,domain,seat_role,is_template,active,created_from,created_at,updated_at';
+ const tentar=(campos:string)=>supabase.from('challenge_scenarios').select(campos)
   .order('is_template').order('created_at',{ascending:false});
- if(error)return NextResponse.json({error:'list_failed',detail:error.message},{status:500});
- return NextResponse.json({scenarios:data||[]});
+ // Mesma degradação em degraus da tela do Studio: uma migração atrás não pode
+ // virar 500.
+ let r=await tentar(`${BASE},join_code,live_since,auto_off_at,idle_hours`);
+ if(r.error)r=await tentar(`${BASE},join_code`);
+ if(r.error)r=await tentar(BASE);
+ if(r.error)return NextResponse.json({error:'list_failed',detail:r.error.message},{status:500});
+ return NextResponse.json({scenarios:r.data||[]});
 }
 
 export async function POST(req:Request){
@@ -70,15 +75,28 @@ export async function POST(req:Request){
   // Quantos ficam no ar é decisão de quem conduz, não do schema — duas turmas em
   // cenários diferentes na mesma semana era o caso que não cabia antes.
   if(action==='activate'){
-   const{error}=await supabase.from('challenge_scenarios').update({active:true}).eq('key',sourceKey).eq('is_template',false);
+   // live_since é a partir de quando a ociosidade conta. Um mundo que sobe e
+   // não recebe ninguém precisa de um marco, senão não há de onde medir.
+   const{error}=await supabase.from('challenge_scenarios')
+    .update({active:true,live_since:new Date().toISOString(),auto_off_at:null})
+    .eq('key',sourceKey).eq('is_template',false);
    if(error)throw new Error(error.message);
    return NextResponse.json({activated:sourceKey});
+  }
+
+  if(action==='janela'){
+   const horas=Math.min(720,Math.max(1,Number(title)||24));
+   const{error}=await supabase.from('challenge_scenarios').update({idle_hours:horas}).eq('key',sourceKey);
+   if(error)throw new Error(error.message);
+   return NextResponse.json({idle_hours:horas});
   }
 
   if(action==='deactivate'){
    // Sessões em andamento guardam o scenario_key: tirar do ar fecha a porta
    // para quem ainda não entrou, sem interromper quem está dentro.
-   const{error}=await supabase.from('challenge_scenarios').update({active:false}).eq('key',sourceKey);
+   // auto_off_at zerado: saiu do ar porque alguém mandou, não por ociosidade,
+   // e a tela precisa saber a diferença.
+   const{error}=await supabase.from('challenge_scenarios').update({active:false,auto_off_at:null}).eq('key',sourceKey);
    if(error)throw new Error(error.message);
    return NextResponse.json({deactivated:sourceKey});
   }
