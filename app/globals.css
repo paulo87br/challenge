@@ -510,3 +510,6 @@ body.modal-aberto{overflow:hidden}
  .painel-head-acoes{width:100%}
  .painel-head-acoes .btn{flex:1 1 auto;justify-content:center}
 }
+.login-motivo{border:2px solid #f0b8c2;background:#fff6f7;border-radius:14px;padding:12px 14px;margin:16px 0 4px;text-align:left}
+.login-motivo b{display:block;font-size:13px;color:#9f1d32;margin-bottom:4px}
+.login-motivo span{display:block;font-size:12px;line-height:1.5;color:#7a4450}
