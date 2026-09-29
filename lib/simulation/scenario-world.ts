@@ -43,7 +43,15 @@ export function worldFor(scenario:ScenarioConfig|null):WorldState{
   characters,
   facts:{...initialWorld.facts,...(scenario.knowledge||{}),
    mission:scenario.mission,worldDescription:scenario.world_description,
-   documentContents:{...(initialWorld.facts as any).documentContents,
+   // Os documentos do próprio cenário vinham por ...scenario.knowledge e eram
+   // apagados aqui: a chave era reconstruída a partir dos documentos do Atlas
+   // mais os artefatos. O mundo anunciava em documents_available três peças do
+   // caso -- decisão, carta, contrato -- cujo conteúdo tinha virado outro. Um
+   // cenário com gente própria não herda mais o acervo alheio, pela mesma razão
+   // que não herda a caixa de entrada logo abaixo.
+   documentContents:{
+    ...((scenario.characters as any[])?.length?{}:(initialWorld.facts as any).documentContents),
+    ...((scenario.knowledge as any)?.documentContents||{}),
     ...Object.fromEntries(scenarioArtifacts(scenario).map(a=>[a.name,a.body]))}},
   // Seed events reference the original cast; a scenario with its own people
   // starts from a clean inbox rather than someone else's conversation.

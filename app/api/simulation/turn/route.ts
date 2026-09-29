@@ -274,7 +274,9 @@ export async function POST(req:Request){
     const waitMs=Math.max(3000,failure.retryAfterMs||15000);
     log('queue','warn','Transient failure; returning the turn to the queue',{code:failure.code,waitMs});
     return NextResponse.json({queued:true,position:0,waitMs,requestId,transient:failure.code,
-     message:`O provedor está sobrecarregado (${FAILURE_LABELS[failure.code]||failure.code}). Nova tentativa em ${Math.max(1,Math.round(waitMs/1000))}s.`},{status:202});
+     // Só o motivo. A contagem é escrita pelo cliente a partir de waitMs: um
+     // número cravado aqui fica parado na tela enquanto o tempo corre.
+     message:`O provedor está sobrecarregado (${FAILURE_LABELS[failure.code]||failure.code}).`},{status:202});
    }
 
    await recordIncident({sessionId:sessionId?String(sessionId):null,provider:engine.provider,model:engine.model,
