@@ -1,4 +1,5 @@
 import type{WorldState}from'./types';
+import{acervoDoMundo}from'./acervo';
 
 /**
  * O documento que abre o Challenge.
@@ -24,8 +25,9 @@ export function briefingDoMundo(world:WorldState){
  const descricao=String(fatos?.worldDescription||'').trim();
  const missao=String(fatos?.mission||'').trim();
  const pessoas=world.characters.map(p=>`• ${p.name} — ${p.role}`).join('\n');
- const documentos=Array.isArray(fatos?.documents_available)
-  ? (fatos.documents_available as string[]).map(nome=>`• ${nome}`).join('\n') : '';
+ // A mesma resolução que alimenta os Arquivos: o briefing não pode prometer um
+ // documento que a tela não mostra, nem esconder um que ela mostra.
+ const documentos=acervoDoMundo(world).map(d=>`• ${d.name}`).join('\n');
 
  const corpo=[
   descricao&&`O QUE ACONTECEU\n\n${descricao}`,
