@@ -48,7 +48,7 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  const scenario:ScenarioConfig=scenarioRow?{...defaultScenario,...scenarioRow,temperature:scenarioRow.temperature||{}}:defaultScenario;
 
  const[{data:sessions},{data:evidence},{data:telemetry},{data:turnRows}]=await Promise.all([
-  supabase.from('challenge_sessions').select('id,user_id,status,started_at,updated_at,debrief').order('updated_at',{ascending:false}),
+  supabase.from('challenge_sessions').select('id,user_id,scenario_key,status,started_at,updated_at,debrief').order('updated_at',{ascending:false}),
   supabase.from('challenge_evidence').select('session_id,polarity'),
   supabase.from('challenge_telemetry').select('session_id'),
   supabase.from('challenge_turns').select('*').order('created_at',{ascending:false}).limit(40)
@@ -69,13 +69,41 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  const emailOf=(id:string)=>people.find(person=>person.id===id)?.email||id;
  const count=(rows:any[]|null,id:string|null)=>id?(rows||[]).filter(row=>row.session_id===id).length:0;
 
- const participants:Participant[]=people.map(person=>{
-  const session=(sessions||[]).find(row=>row.user_id===person.id);
-  return{userId:person.id,email:person.email||person.id,createdAt:person.created_at,
-   lastSignIn:person.last_sign_in_at||null,sessionId:session?.id||null,status:session?.status||null,
-   actions:count(telemetry,session?.id||null),evidence:count(evidence,session?.id||null),
-   risks:session?(evidence||[]).filter(row=>row.session_id===session.id&&row.polarity==='risk').length:0,
-   hasDebrief:Boolean(session?.debrief),startedAt:session?.started_at||null,updatedAt:session?.updated_at||null};
+ // Uma linha por pessoa E por mundo. Antes era uma linha por pessoa, com
+ // `find` pegando a sessão mais recente de qualquer mundo: quem jogou em dois
+ // aparecia uma vez só, sob o mundo errado, e os números de um vazavam para o
+ // outro. Quem tem várias sessões no mesmo mundo é somado, com a contagem à
+ // vista -- cinco tentativas no mesmo caso é informação, não ruído.
+ const tituloDoMundo=(chave:string)=>String((scenarioRows as any[]||[]).find((s:any)=>s?.key===chave)?.title||chave);
+ const participants:Participant[]=people.flatMap((person):Participant[]=>{
+  const minhas=(sessions||[]).filter(row=>row.user_id===person.id);
+  const base={userId:person.id,email:person.email||person.id,createdAt:person.created_at,
+   lastSignIn:person.last_sign_in_at||null};
+  if(!minhas.length)return[{...base,scenarioKey:null,scenarioTitle:null,sessionId:null,status:null,
+   actions:0,evidence:0,risks:0,hasDebrief:false,debriefs:0,startedAt:null,updatedAt:null,sessions:0}];
+  const porMundo=new Map<string,any[]>();
+  for(const linha of minhas){
+   const chave=linha.scenario_key||'—';
+   porMundo.set(chave,[...(porMundo.get(chave)||[]),linha]);
+  }
+  return[...porMundo.entries()].map(([chave,linhas])=>{
+   // A lista já vem por updated_at desc, então a primeira é a mais recente.
+   const recente=linhas[0];
+   const ids=new Set(linhas.map(l=>l.id));
+   const daPessoa=(rows:any[]|null)=>(rows||[]).filter(row=>ids.has(row.session_id));
+   return{...base,scenarioKey:chave,scenarioTitle:tituloDoMundo(chave),
+    sessionId:recente.id,status:recente.status||null,
+    actions:daPessoa(telemetry).length,
+    evidence:daPessoa(evidence).length,
+    risks:daPessoa(evidence).filter(row=>row.polarity==='risk').length,
+    // O selo mostra onde a pessoa está agora, que é o da sessão mais recente.
+    // Somar "tem debrief em alguma das cinco" fazia quem terminou uma corrida e
+    // começou outra aparecer como concluída no meio da segunda.
+    hasDebrief:Boolean(recente.debrief),
+    debriefs:linhas.filter(l=>Boolean(l.debrief)).length,
+    startedAt:linhas[linhas.length-1].started_at||null,updatedAt:recente.updated_at||null,
+    sessions:linhas.length};
+  });
  }).sort((a,b)=>(b.actions-a.actions)||a.email.localeCompare(b.email));
 
  const sessionOwner=new Map((sessions||[]).map(row=>[row.id,emailOf(row.user_id)]));

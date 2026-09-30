@@ -519,3 +519,7 @@ body.modal-aberto{overflow:hidden}
 .provider-chip.sem-chave{opacity:.62;border-style:dashed}
 .chip-sem-chave{display:block;font-size:9px;font-weight:800;letter-spacing:.06em;color:#b91c1c;margin-top:2px}
 .chave-ok{color:#17643f}
+.seletor-mundo{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:2px 0 4px}
+.seletor-mundo select{min-width:280px}
+.seletor-mundo small{padding-bottom:11px}
+@media(max-width:900px){.seletor-mundo select{min-width:0;width:100%}.seletor-mundo label{flex:1 1 100%}}

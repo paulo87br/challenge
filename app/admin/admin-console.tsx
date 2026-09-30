@@ -6,8 +6,11 @@ import{ScenarioForm}from'./scenario-form';import{LimitsEditor,type RateLimit}fro
 import type{ScenarioConfig}from'@/lib/simulation/scenario';import type{Character}from'@/lib/simulation/types';
 
 export type Participant={userId:string;email:string;createdAt:string;lastSignIn:string|null;
+ // Uma linha é uma pessoa dentro de um mundo. scenarioKey nulo é quem tem conta
+ // e nunca entrou em nenhum -- ausência que só faz sentido na visão geral.
+ scenarioKey:string|null;scenarioTitle:string|null;sessions:number;
  sessionId:string|null;status:string|null;actions:number;evidence:number;risks:number;
- hasDebrief:boolean;startedAt:string|null;updatedAt:string|null};
+ hasDebrief:boolean;debriefs:number;startedAt:string|null;updatedAt:string|null};
 export type Incident={id:string;provider:string|null;model:string|null;kind:string;code:string|null;message:string|null;occurrences:number;attempts:number;firstSeenAt:string;lastSeenAt:string;label:string};
 export type TurnRow={id:string;requestId:string;createdAt:string;severity:string|null;headline:string|null;
  summary:string|null;model:string|null;provider:string|null;inputTokens:number|null;outputTokens:number|null;modelCalls:number|null;
@@ -21,9 +24,23 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
  const[tab,setTab]=useState('cenario');
  const[resolving,setResolving]=useState('');
  async function resolver(id:string){setResolving(id);await fetch('/api/admin/incident',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});location.reload()}
- const entered=participants.length;
- const exercised=participants.filter(p=>p.actions>0).length;
- const finished=participants.filter(p=>p.hasDebrief).length;
+ // Os mundos que têm gente dentro, mais recente primeiro. A lista de cenários
+ // já vem ordenada por created_at desc.
+ const mundos=(scenarios||[]).filter((s:any)=>!s.is_template)
+  .filter((s:any)=>participants.some(p=>p.scenarioKey===s.key))
+  .map((s:any)=>({key:String(s.key),title:String(s.title||s.key),active:Boolean(s.active)}));
+ // O padrão é o mundo no ar; sem nenhum no ar, o do acesso mais recente. Cair
+ // em "todos" por padrão foi o que misturou os dados na tela.
+ const padrao=mundos.find(m=>m.active)?.key
+  ||[...participants].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))
+    .find(p=>p.scenarioKey)?.scenarioKey||'todos';
+ const[mundo,setMundo]=useState(padrao);
+ const escolhidos=mundo==='todos'?participants:participants.filter(p=>p.scenarioKey===mundo);
+
+ const entered=escolhidos.length;
+ const exercised=escolhidos.filter(p=>p.actions>0).length;
+ const finished=escolhidos.filter(p=>p.debriefs>0).length;
+ const rotuloMundo=mundo==='todos'?'todos os mundos':(mundos.find(m=>m.key===mundo)?.title||mundo);
 
  return <main className="painel painel-largo">
   <header className="painel-head">
@@ -35,8 +52,18 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
    </div>
   </header>
 
+  {mundos.length>0&&<div className="seletor-mundo">
+   <label><span className="eyebrow">MUNDO</span>
+    <select className="input" value={mundo} onChange={e=>setMundo(e.target.value)} aria-label="Ver os dados de qual mundo">
+     {mundos.map(m=><option key={m.key} value={m.key}>{m.title}{m.active?' · no ar':''}</option>)}
+     {mundos.length>1&&<option value="todos">Todos os mundos</option>}
+    </select>
+   </label>
+   <small className="muted">Os números e a lista abaixo são deste mundo.</small>
+  </div>}
+
   <div className="console-summary">
-   <div className="panel"><div className="eyebrow">ENTRARAM</div><div className="metric">{entered}</div><small className="muted">contas com acesso</small></div>
+   <div className="panel"><div className="eyebrow">ENTRARAM</div><div className="metric">{entered}</div><small className="muted">{mundo==='todos'?'contas com acesso':'contas que entraram neste mundo'}</small></div>
    <div className="panel"><div className="eyebrow">EXERCITARAM</div><div className="metric">{exercised}</div><small className="muted">agiram no mundo pelo menos uma vez</small></div>
    <div className="panel"><div className="eyebrow">CHEGARAM AO FIM</div><div className="metric">{finished}</div><small className="muted">receberam o debrief</small></div>
   </div>
@@ -48,18 +75,25 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
 
   {tab==='pessoas'&&<section className="panel">
    <h2>Quem entrou, quem exercitou, o que saiu</h2>
-   <p className="muted">Uma linha por pessoa. &quot;Resultado&quot; é o que a sessão produziu, não uma nota.</p>
-   {participants.length===0&&<p className="muted">Ninguém entrou ainda.</p>}
-   {participants.length>0&&<div className="people-table">
+   <p className="muted">Uma linha por pessoa em <b>{rotuloMundo}</b>. &quot;Resultado&quot; é o que a sessão produziu, não uma nota.</p>
+   {escolhidos.length===0&&<p className="muted">Ninguém entrou neste mundo ainda.</p>}
+   {escolhidos.length>0&&<div className="people-table">
     <div className="people-row people-header"><span>Pessoa</span><span>Último acesso</span><span>Ações</span><span>Evidência</span><span>Resultado</span></div>
-    {participants.map(person=><div className="people-row" key={person.userId}>
-     <span className="people-who"><b>{person.email}</b><small>entrou em {when(person.createdAt)}</small></span>
+    {escolhidos.map(person=><div className="people-row" key={person.userId+'|'+(person.scenarioKey||'')}>
+     <span className="people-who"><b>{person.email}</b>
+      <small>{mundo==='todos'&&person.scenarioTitle?`${person.scenarioTitle} · `:''}
+       {person.sessions>1?`${person.sessions} sessões · `:''}
+       {person.debriefs>0&&!person.hasDebrief?`${person.debriefs} debrief${person.debriefs>1?'s':''} antes · `:''}
+       entrou em {when(person.createdAt)}</small></span>
      <span>{when(person.lastSignIn)}</span>
      <span>{person.actions||'—'}</span>
      <span>{person.evidence?`${person.evidence}${person.risks?` · ${person.risks} de risco`:''}`:'—'}</span>
      <span className="people-result">
       {!person.sessionId&&<span className="muted">não começou</span>}
-      {person.sessionId&&!person.hasDebrief&&<span className="diagnostic-pill attention">em andamento</span>}
+      {/* "em andamento" era dito para qualquer sessão sem debrief, inclusive
+          uma pausada ou abandonada. O estado da sessão já estava no dado. */}
+      {person.sessionId&&!person.hasDebrief&&<span className={'diagnostic-pill '+(person.status==='active'?'attention':'')}>
+       {person.status==='paused'?'pausada':person.status==='abandoned'?'abandonada':person.status==='completed'?'encerrada sem debrief':'em andamento'}</span>}
       {person.hasDebrief&&<span className="diagnostic-pill ok">debrief entregue</span>}
       {person.sessionId&&<Link className="btn" href={`/painel/${person.sessionId}`}>Abrir</Link>}
      </span>
