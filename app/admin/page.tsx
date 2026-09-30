@@ -1,7 +1,7 @@
 import{redirect}from'next/navigation';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';import{initialWorld}from'@/lib/simulation/runtime';
-import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{expirarMundosOciosos}from'@/lib/supabase/sessions';import{FAILURE_LABELS}from'@/lib/ai/errors';
+import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{expirarMundosOciosos}from'@/lib/supabase/sessions';import{FAILURE_LABELS}from'@/lib/ai/errors';import{PROVIDERS,type ProviderId}from'@/lib/ai/providers';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'Studio · Challenge'};
@@ -95,7 +95,13 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  // Read on the server: the Studio can say the voice key is missing before the
  // participant finds out by clicking a button that fails.
  const voiceKeyConfigured=Boolean(process.env.OPENAI_API_KEY?.trim());
+ // Quais provedores têm chave neste ambiente. Só o booleano atravessa: a chave
+ // em si nunca sai do servidor. O Studio dizia de qual variável lia a chave e
+ // não dizia se ela existia -- escolher um motor sem chave só aparecia depois,
+ // como incidente, no meio de uma sessão de alguém.
+ const chaves=Object.fromEntries((Object.keys(PROVIDERS) as ProviderId[])
+  .map(id=>[id,Boolean(process.env[PROVIDERS[id].keyEnv]?.trim())]));
 
  return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any} faltaMigracao={faltaMigracao}
-  usuario={{nome:nomeDoUsuario(user),email:String(user.email||'')}}/>;
+  usuario={{nome:nomeDoUsuario(user),email:String(user.email||'')}} chaves={chaves}/>;
 }

@@ -516,3 +516,6 @@ body.modal-aberto{overflow:hidden}
 .mundo-janela{flex:1 1 100%;order:5;font-size:11px;color:#756d82;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .janela-horas{width:62px!important;padding:4px 6px;font-size:12px;text-align:center;border-width:1px}
 @media(max-width:900px){.mundo-janela{order:3}}
+.provider-chip.sem-chave{opacity:.62;border-style:dashed}
+.chip-sem-chave{display:block;font-size:9px;font-weight:800;letter-spacing:.06em;color:#b91c1c;margin-top:2px}
+.chave-ok{color:#17643f}

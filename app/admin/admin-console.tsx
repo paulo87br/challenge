@@ -17,7 +17,7 @@ export type TurnRow={id:string;requestId:string;createdAt:string;severity:string
 const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug},{id:'incidentes',label:'Incidentes',Icon:TriangleAlert}];
 const when=(value:string|null)=>value?new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
 
-export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao,usuario}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean;usuario?:{nome:string;email:string}}){
+export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao,usuario,chaves}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean;usuario?:{nome:string;email:string};chaves?:Record<string,boolean>}){
  const[tab,setTab]=useState('cenario');
  const[resolving,setResolving]=useState('');
  async function resolver(id:string){setResolving(id);await fetch('/api/admin/incident',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});location.reload()}
@@ -44,7 +44,7 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
   <nav className="console-tabs">{TABS.map(({id,label,Icon})=>
    <button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={17}/>{label}{id==='incidentes'&&incidents.length>0&&<b className="tab-badge">{incidents.length}</b>}</button>)}</nav>
 
-  {tab==='cenario'&&<ScenarioForm initial={scenario} defaultCast={defaultCast} voiceKeyConfigured={voiceKeyConfigured} scenarios={scenarios} faltaMigracao={faltaMigracao}/>}
+  {tab==='cenario'&&<ScenarioForm initial={scenario} defaultCast={defaultCast} voiceKeyConfigured={voiceKeyConfigured} scenarios={scenarios} faltaMigracao={faltaMigracao} chaves={chaves}/>}
 
   {tab==='pessoas'&&<section className="panel">
    <h2>Quem entrou, quem exercitou, o que saiu</h2>

@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{createSupabaseServerClient}from'@/lib/supabase/server';
+import{NextResponse}from'next/server';import{createSupabaseServerClient}from'@/lib/supabase/server';import{defaultModel,isProvider}from'@/lib/ai/providers';
 
 export async function POST(req:Request){
  try{
@@ -17,7 +17,10 @@ export async function POST(req:Request){
    seat_role:String(body.seat_role||'').trim(),mission:String(body.mission||''),
    world_description:String(body.world_description||''),temperature:body.temperature||{},
    duration_minutes:Number(body.duration_minutes)||30,
-   provider:String(body.provider||'openai'),model:String(body.model||''),
+   // Modelo vazio era gravado vazio e virava o primeiro da lista só na hora de
+   // rodar -- uma escolha que ninguém fez, invisível até a conta chegar.
+   provider:String(body.provider||'openai'),
+   model:String(body.model||'').trim()||defaultModel(isProvider(body.provider)?body.provider:'openai'),
    characters:Array.isArray(body.characters)?body.characters:[],
    artifacts:Array.isArray(body.artifacts)?body.artifacts:[],
    knowledge:body.knowledge&&typeof body.knowledge==='object'?body.knowledge:{},

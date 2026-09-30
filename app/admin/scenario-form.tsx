@@ -2,7 +2,7 @@
 import{useState}from'react';import{Save}from'lucide-react';
 import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import{ArtifactEditor}from'./artifact-editor';import{CompetencyEditor}from'./competency-editor';import{NewsEditor}from'./news-editor';import{ScenarioSwitcher,type ScenarioRow}from'./scenario-switcher';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
 
-export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,faltaMigracao}:{initial:ScenarioConfig;defaultCast:Character[];voiceKeyConfigured:boolean;scenarios:ScenarioRow[];faltaMigracao?:boolean}){
+export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,faltaMigracao,chaves}:{initial:ScenarioConfig;defaultCast:Character[];voiceKeyConfigured:boolean;scenarios:ScenarioRow[];faltaMigracao?:boolean;chaves?:Record<string,boolean>}){
  const[form,setForm]=useState<ScenarioConfig>(initial);
  // An empty cast means the scenario still rides on the compiled default; show
  // that cast so editing it is a choice rather than starting from nothing.
@@ -92,7 +92,7 @@ export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,f
   {secaoAtiva==='imprensa'&&<NewsEditor news={form.news||[]} onChange={next=>set({news:next})}/>}
 
   {secaoAtiva==='motor'&&<>
-   <EnginePicker provider={(form.provider||'openai') as ProviderId} model={form.model||''}
+   <EnginePicker chaves={chaves} provider={(form.provider||'openai') as ProviderId} model={form.model||''}
     onChange={next=>set(next as Partial<ScenarioConfig>)}/>
 
    <section className="panel">
