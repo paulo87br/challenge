@@ -587,3 +587,12 @@ body.modal-aberto{overflow:hidden}
 .chamada-acoes .btn{flex:1;justify-content:center;padding:13px}
 .btn.atender{background:#12b89a;color:#fff}
 @media(prefers-reduced-motion:reduce){.chamada-pulso::after{animation:none;opacity:.5}}
+
+/* As três áreas do instrutor, presentes em todas elas. */
+.nav-instrutor{display:flex;gap:4px;background:#fff7e9;border:2px solid #211a38;border-radius:14px;padding:4px}
+.nav-instrutor-item{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;
+ text-decoration:none;color:#514a65;font-weight:800;font-size:13px;white-space:nowrap}
+.nav-instrutor-item:hover{background:#fff}
+.nav-instrutor-item.atual{background:#211a38;color:#fff}
+@media(max-width:900px){.nav-instrutor{width:100%;justify-content:space-between}
+ .nav-instrutor-item{flex:1;justify-content:center;padding:8px 6px;font-size:12px}}

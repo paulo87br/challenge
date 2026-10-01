@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import{NavInstrutor}from'@/app/ui/nav-instrutor';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{NoAccess}from'../no-access';import{PrintButton}from'../print-button';import{buildProfile,profileSummary}from'@/lib/simulation/profile';
 import{defaultScenario}from'@/lib/simulation/scenario';
@@ -48,7 +49,7 @@ export default async function SessionDetail({params}:{params:{id:string}}){
 
  return <main className="painel">
   <header className="painel-head no-print">
-   <div><Link href="/painel" className="btn">← Sessões</Link>
+   <div><NavInstrutor atual="/painel"/>
    <h1 className="h1" style={{marginTop:14}}>{email}</h1>
    <p className="muted">{world?.title||session.scenario_key} · {(telemetry||[]).length} ações · {(evidence||[]).length} sinais de evidência</p></div>
    <PrintButton csv={csv} filename={`challenge-${email}.csv`}/>

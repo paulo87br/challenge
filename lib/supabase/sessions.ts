@@ -83,8 +83,14 @@ export async function ensureSession():Promise<Entrada|null>{
  if(!supabase)return null;
  const{data:{user}}=await supabase.auth.getUser();
  if(!user)return null;
+ // Concluída também é retomada, e de propósito. Antes só active e paused
+ // voltavam: quem encerrava e recarregava ganhava um mundo novo em silêncio,
+ // como se a prova entregue reaparecesse em branco sobre a mesa. Agora a
+ // sessão encerrada volta com o debrief dela, e começar outra é um ato
+ // explícito -- o botão Recomeçar.
  const{data:existing}=await supabase.from('challenge_sessions')
-  .select('id,world_state,debrief,status,scenario_key').eq('user_id',user.id).in('status',['active','paused'])
+  .select('id,world_state,debrief,status,scenario_key').eq('user_id',user.id)
+  .in('status',['active','paused','completed'])
   .order('started_at',{ascending:false}).limit(1).maybeSingle();
  const scenario=await loadScenario(supabase,existing?.scenario_key);
  if(existing){
@@ -141,7 +147,8 @@ export async function entrarNoMundo(codigoCru:string,abandonarAtual=false):Promi
  if(!destino)return{erro:'codigo_nao_encontrado'};
 
  const{data:emAndamento}=await supabase.from('challenge_sessions')
-  .select('id,world_state,debrief,status,scenario_key').eq('user_id',user.id).in('status',['active','paused'])
+  .select('id,world_state,debrief,status,scenario_key').eq('user_id',user.id)
+  .in('status',['active','paused','completed'])
   .order('started_at',{ascending:false}).limit(1).maybeSingle();
 
  if(emAndamento){
@@ -190,13 +197,13 @@ export async function restartSession():Promise<SessionBundle|null>{
  // pegar "o ativo" daria a quem clica em recomeçar um mundo diferente do que
  // estava jogando, sem pedir nada.
  const{data:atual}=await supabase.from('challenge_sessions')
-  .select('scenario_key').eq('user_id',user.id).in('status',['active','paused'])
+  .select('scenario_key').eq('user_id',user.id).in('status',['active','paused','completed'])
   .order('started_at',{ascending:false}).limit(1).maybeSingle();
  // Kept, not deleted: an abandoned run is still something the instructor may
  // want to look at, and the evidence attached to it is not the person's to erase.
  await supabase.from('challenge_sessions')
   .update({status:'abandoned',completed_at:new Date().toISOString()})
-  .eq('user_id',user.id).in('status',['active','paused']);
+  .eq('user_id',user.id).in('status',['active','paused','completed']);
  const scenario=await loadScenario(supabase,atual?.scenario_key);
  return criarSessao(supabase,user.id,scenario);
 }

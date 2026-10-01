@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{nomeDoUsuario}from'@/lib/mundo/usuario';
+import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{NavInstrutor}from'@/app/ui/nav-instrutor';import{nomeDoUsuario}from'@/lib/mundo/usuario';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{NoAccess}from'./no-access';
 
@@ -30,12 +30,12 @@ export default async function Painel(){
  }
  const countBy=(rows:any[]|null,id:string)=>(rows||[]).filter(row=>row.session_id===id).length;
 
- return <main className="painel">
+ return <main className="painel painel-largo">
   <header className="painel-head">
    <div><div className="eyebrow">CHALLENGE · INSTRUTOR</div><h1 className="h1">Sessões</h1>
    <p className="muted">Cada linha é o Challenge de uma pessoa. A evidência é observação, não nota: leia junto com o que a pessoa realmente fez.</p></div>
-   <div className="painel-head-acoes"><span className="tag">{sessions?.length||0} sessões</span>
-    <Link href="/painel/turma" className="btn">Ver a turma</Link>
+   <div className="painel-head-acoes"><NavInstrutor atual="/painel"/>
+    <span className="tag">{sessions?.length||0} sessões</span>
     <UsuarioSessao nome={nomeDoUsuario(user)} email={String(user.email||'')} compacto/></div>
   </header>
   {!sessions?.length&&<div className="panel"><p className="muted">Nenhuma sessão registrada ainda.</p></div>}

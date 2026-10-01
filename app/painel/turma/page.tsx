@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import{NavInstrutor}from'@/app/ui/nav-instrutor';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario}from'@/lib/simulation/scenario';
 import{buildProfile}from'@/lib/simulation/profile';
@@ -50,9 +51,9 @@ export default async function Turma(){
   ...rows.map(row=>[row.email,row.actions,row.signals,row.hasDebrief?'sim':'nao',
    ...framework.map((c:any)=>row.profile.find(entry=>entry.code===c.code)?.signals||0)].join(','))].join('\n');
 
- return <main className="painel">
+ return <main className="painel painel-largo">
   <header className="painel-head no-print">
-   <div><Link href="/painel" className="btn">← Sessões</Link>
+   <div><NavInstrutor atual="/painel/turma"/>
    <h1 className="h1" style={{marginTop:14}}>A turma</h1>
    <p className="muted">{rows.length} pessoa(s) que agiram no mundo · {scenarioRow?.title||'Challenge'}</p></div>
    <PrintButton csv={csv} filename="challenge-turma.csv"/>

@@ -1,5 +1,5 @@
 'use client';
-import{UsuarioSessao}from'@/app/ui/usuario-sessao';
+import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{NavInstrutor}from'@/app/ui/nav-instrutor';
 import{useState}from'react';import Link from 'next/link';
 import{SlidersHorizontal,Users,Bug,TriangleAlert,Check}from'lucide-react';
 import{ScenarioForm}from'./scenario-form';import{LimitsEditor,type RateLimit}from'./limits-editor';
@@ -47,6 +47,7 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
    <div><div className="eyebrow">CHALLENGE · STUDIO</div><h1 className="h1">{scenario.title}</h1>
    <p className="muted">Você monta o mundo aqui. O motor cuida de fazer a história reagir.</p></div>
    <div className="painel-head-acoes">
+    <NavInstrutor atual="/admin"/>
     <Link href="/lab" className="btn">Ver como participante</Link>
     {usuario&&<UsuarioSessao nome={usuario.nome} email={usuario.email} compacto/>}
    </div>
