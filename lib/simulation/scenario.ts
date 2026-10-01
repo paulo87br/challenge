@@ -1,4 +1,4 @@
-import type{Character,Competency,NewsItem,Temperature,WorldState}from'./types';
+import type{Character,Competency,NewsItem,Temperature,WorldState,WorldEvent}from'./types';
 import{initialWorld}from'./runtime';
 
 // What the Studio can author today. Characters and their knowledge perimeter
@@ -18,6 +18,8 @@ export type ScenarioConfig={
  competencies:Competency[];
  // A imprensa do mundo. Vazia significa que o cenário não tem notícia própria.
  news:NewsItem[];
+ // O que o mundo faz por conta própria. 'at' é minutos depois do início.
+ events?:WorldEvent[];
  calls_enabled:boolean;
  call_minutes_per_call:number;
  call_minutes_per_session:number;

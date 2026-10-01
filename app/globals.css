@@ -534,3 +534,7 @@ body.modal-aberto{overflow:hidden}
 .briefing-bloco p{margin:0 0 9px;line-height:1.7;color:#453e58}
 .briefing-ir{margin-top:26px;width:100%!important;justify-content:center;padding:13px}
 .briefing-esperando{display:flex;align-items:center;gap:10px;margin:22px 0 4px}
+.evento-min{flex:0 0 auto;min-width:40px;text-align:right;font-weight:900;font-size:13px;color:#7b61ff;font-variant-numeric:tabular-nums}
+.canal-row{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0 2px}
+.canal-row .provider-chip{display:inline-flex;align-items:center;gap:6px}
+.evento-corpo{min-height:130px;resize:vertical}

@@ -26,6 +26,12 @@ export async function POST(req:Request){
    knowledge:body.knowledge&&typeof body.knowledge==='object'?body.knowledge:{},
    competencies:Array.isArray(body.competencies)?body.competencies.filter((c:any)=>c?.code&&c?.name):[],
    news:Array.isArray(body.news)?body.news.filter((n:any)=>n?.id):[],
+   // Só o que tem canal e texto: um acontecimento vazio salvo é um silêncio que
+   // o instrutor acha que agendou.
+   events:Array.isArray(body.events)
+    ?body.events.filter((e:any)=>e?.id&&e?.channel&&String(e?.body||'').trim())
+      .map((e:any)=>({...e,at:Math.max(0,Number(e.at)||0),urgency:Math.min(1,Math.max(0,Number(e.urgency)||0.6)),visible:e.visible!==false}))
+    :[],
    // Voice always runs on OpenAI and reads OPENAI_API_KEY, which has nothing to
    // do with which provider drives the turns. Coupling them forced anyone who
    // wanted a call to move their whole engine off Groq.

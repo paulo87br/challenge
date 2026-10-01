@@ -1,6 +1,6 @@
 'use client';
 import{useState}from'react';import{Save}from'lucide-react';
-import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import{ArtifactEditor}from'./artifact-editor';import{CompetencyEditor}from'./competency-editor';import{NewsEditor}from'./news-editor';import{ScenarioSwitcher,type ScenarioRow}from'./scenario-switcher';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
+import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import{ArtifactEditor}from'./artifact-editor';import{CompetencyEditor}from'./competency-editor';import{NewsEditor}from'./news-editor';import{EventEditor}from'./event-editor';import{ScenarioSwitcher,type ScenarioRow}from'./scenario-switcher';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
 
 export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,faltaMigracao,chaves,chaveDeVoz}:{initial:ScenarioConfig;defaultCast:Character[];voiceKeyConfigured:boolean;scenarios:ScenarioRow[];faltaMigracao?:boolean;chaves?:Record<string,{estado:string;tamanho:number}>;chaveDeVoz?:{estado:string;tamanho:number}}){
  const[form,setForm]=useState<ScenarioConfig>(initial);
@@ -31,6 +31,7 @@ export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,f
   {id:'pessoas',label:`Pessoas (${cast.length})`},
   {id:'documentos',label:`Documentos (${(form.artifacts||[]).length})`},
   {id:'avaliacao',label:`Avaliação (${(form.competencies||[]).length})`},
+  {id:'acontece',label:`O que acontece (${(form.events||[]).length})`},
   {id:'imprensa',label:`Imprensa (${(form.news||[]).length})`},
   {id:'motor',label:'Motor e voz'}
  ];
@@ -89,6 +90,8 @@ export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,f
   {secaoAtiva==='pessoas'&&<PersonaEditor characters={cast} usingDefaults={usingDefaults} callsEnabled={Boolean(form.calls_enabled)} onChange={next=>set({characters:next})}/>}
   {secaoAtiva==='documentos'&&<ArtifactEditor artifacts={form.artifacts||[]} characters={cast} onChange={next=>set({artifacts:next})}/>}
   {secaoAtiva==='avaliacao'&&<CompetencyEditor competencies={form.competencies||[]} onChange={next=>set({competencies:next})}/>}
+  {secaoAtiva==='acontece'&&<EventEditor events={form.events||[]} characters={cast} onChange={next=>set({events:next})}/>}
+
   {secaoAtiva==='imprensa'&&<NewsEditor news={form.news||[]} onChange={next=>set({news:next})}/>}
 
   {secaoAtiva==='motor'&&<>

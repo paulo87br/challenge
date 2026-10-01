@@ -29,7 +29,8 @@ with checagens(migracao, o_que_cria, presente) as (values
  ('018 mundo expira',       'expirar_mundos_ociosos()', exists(select 1 from pg_proc where proname='challenge_expirar_mundos_ociosos')),
  ('019 eventos do cenário',  'scenarios.events',        exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='events')),
  -- A 020 é dado: o sinal é o caso ter eventos para disparar sozinho.
- ('020 eventos do caso',     'juridico com eventos',    coalesce((select jsonb_array_length(events) from public.challenge_scenarios where key='juridico'),0) > 0)
+ ('020 eventos do caso',     'juridico com eventos',    coalesce((select jsonb_array_length(events) from public.challenge_scenarios where key='juridico'),0) > 0),
+ ('021 cenário sobrevive',   'updated_by on delete',    exists(select 1 from pg_constraint where conname='challenge_scenarios_updated_by_fkey' and confdeltype='n'))
 )
 select
  case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,
