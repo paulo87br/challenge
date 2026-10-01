@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import{quando}from'@/lib/mundo/quando';
 import{NavInstrutor}from'@/app/ui/nav-instrutor';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{NoAccess}from'../no-access';import{PrintButton}from'../print-button';import{buildProfile,profileSummary}from'@/lib/simulation/profile';
@@ -55,7 +56,7 @@ export default async function SessionDetail({params}:{params:{id:string}}){
    <PrintButton csv={csv} filename={`challenge-${email}.csv`}/>
   </header>
   <div className="print-only print-head"><h1>{world?.title||'Challenge'} — {email}</h1>
-   <p>{(telemetry||[]).length} ações · {(evidence||[]).length} sinais · gerado em {new Date().toLocaleString('pt-BR')}</p></div>
+   <p>{(telemetry||[]).length} ações · {(evidence||[]).length} sinais · gerado em {quando(new Date())}</p></div>
 
   {debrief&&<section className="panel"><div className="eyebrow">DEBRIEF ENTREGUE À PESSOA</div><h2>{debrief.headline}</h2>
    {String(debrief.narrative||'').split('\n').filter(Boolean).map((p:string,i:number)=><p key={i}>{p}</p>)}</section>}

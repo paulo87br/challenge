@@ -1,5 +1,6 @@
 'use client';
 import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{NavInstrutor}from'@/app/ui/nav-instrutor';import{Custo,type UsoDeVoz,type UsoPorModelo}from'./custo';
+import{quandoCurto}from'@/lib/mundo/quando';
 import{estadoDaSessao}from'@/lib/mundo/estado-da-sessao';
 import{useState}from'react';import Link from 'next/link';
 import{SlidersHorizontal,Users,Bug,TriangleAlert,Check}from'lucide-react';
@@ -19,7 +20,7 @@ export type TurnRow={id:string;requestId:string;createdAt:string;severity:string
  email:string;logs:Array<{stage:string;status:string;message:string;meta:any}>};
 
 const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug},{id:'incidentes',label:'Incidentes',Icon:TriangleAlert}];
-const when=(value:string|null)=>value?new Date(value).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+const when=quandoCurto;
 
 export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao,usuario,chaves,chaveDeVoz,consumo}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean;usuario?:{nome:string;email:string};chaves?:Record<string,{estado:string;tamanho:number}>;chaveDeVoz?:{estado:string;tamanho:number};consumo?:Record<string,{modelos:Record<string,UsoPorModelo>;voz:UsoDeVoz}>}){
  const[tab,setTab]=useState('cenario');

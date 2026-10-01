@@ -32,6 +32,11 @@ export async function updateSession(request:NextRequest){
  const isPublic=PUBLIC_PREFIXES.some(prefix=>path.startsWith(prefix));
 
  if(!user&&!isPublic){
+  // Uma rota de API responde a um programa, não a um navegador. Mandá-la para
+  // a tela de login devolve HTML com status 200, e quem chamou lê sucesso onde
+  // houve recusa: a sessão do instrutor que expirou com a aba aberta virava
+  // uma mensagem sem sentido na tela em vez de "entre de novo".
+  if(path.startsWith('/api/'))return NextResponse.json({error:'sem_sessao'},{status:401});
   const target=request.nextUrl.clone();
   target.pathname='/login';
   target.searchParams.set('next',path);

@@ -1,7 +1,6 @@
-import Link from 'next/link';
 import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{NavInstrutor}from'@/app/ui/nav-instrutor';import{nomeDoUsuario}from'@/lib/mundo/usuario';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
-import{expirarOciosos}from'@/lib/supabase/sessions';import{estadoDaSessao}from'@/lib/mundo/estado-da-sessao';
+import{expirarOciosos}from'@/lib/supabase/sessions';import{quando}from'@/lib/mundo/quando';import{ListaDeSessoes}from'./lista-de-sessoes';
 import{NoAccess}from'./no-access';
 
 export const dynamic='force-dynamic';
@@ -44,25 +43,23 @@ export default async function Painel(){
     <UsuarioSessao nome={nomeDoUsuario(user)} email={String(user.email||'')} compacto/></div>
   </header>
   {!sessions?.length&&<div className="panel"><p className="muted">Nenhuma sessão registrada ainda.</p></div>}
-  <div className="painel-list">
-   {(sessions||[]).map(session=>{
-    const signals=countBy(evidence,session.id);
-    const risks=(evidence||[]).filter(row=>row.session_id===session.id&&row.polarity==='risk').length;
-    const world=session.world_state as any;
-    return <Link href={`/painel/${session.id}`} key={session.id} className="panel painel-row">
-     <div className="painel-row-main">
-      <b>{emails.get(session.user_id)||session.user_id}</b>
-      <span className="muted">{world?.title||session.scenario_key} · atualizado {new Date(session.updated_at).toLocaleString('pt-BR')}</span>
-     </div>
-     <div className="painel-stats">
-      <span className="tag">{countBy(telemetry,session.id)} ações</span>
-      <span className="tag">{signals} evidências</span>
-      {risks>0&&<span className="tag hot">{risks} de risco</span>}
-      <span className={('diagnostic-pill '+estadoDaSessao(session.status,Boolean(session.debrief)).tom).trim()}>{estadoDaSessao(session.status,Boolean(session.debrief)).rotulo}</span>
-      {session.debrief&&<span className="tag">debrief</span>}
-     </div>
-    </Link>;
-   })}
-  </div>
+  {!!sessions?.length&&<ListaDeSessoes linhas={(sessions||[]).map(session=>{
+   const world=session.world_state as any;
+   return{
+    id:session.id,
+    pessoa:emails.get(session.user_id)||session.user_id,
+    mundo:world?.title||session.scenario_key,
+    // A data é formatada aqui: no cliente, o fuso do navegador produziria um
+    // texto diferente do servidor e o React reclamaria da hidratação. O fuso é
+    // dito, não herdado: a Vercel roda em UTC, então a mesma linha que aqui
+    // marcava 03:19 aparecia como 06:19 em produção -- três horas de mentira
+    // para quem lê a que horas a pessoa agiu.
+    atualizado:quando(session.updated_at),
+    acoes:countBy(telemetry,session.id),
+    evidencias:countBy(evidence,session.id),
+    riscos:(evidence||[]).filter(row=>row.session_id===session.id&&row.polarity==='risk').length,
+    status:String(session.status||''),
+    temDebrief:Boolean(session.debrief)};
+  })}/>}
  </main>;
 }

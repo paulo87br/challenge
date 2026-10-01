@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import{quando}from'@/lib/mundo/quando';
 import{NavInstrutor}from'@/app/ui/nav-instrutor';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario}from'@/lib/simulation/scenario';
@@ -59,7 +60,7 @@ export default async function Turma(){
    <PrintButton csv={csv} filename="challenge-turma.csv"/>
   </header>
   <div className="print-only print-head"><h1>{scenarioRow?.title||'Challenge'} — relatório da turma</h1>
-   <p>{rows.length} participantes · gerado em {new Date().toLocaleString('pt-BR')}</p></div>
+   <p>{rows.length} participantes · gerado em {quando(new Date())}</p></div>
 
   <section className="panel"><h2>Cobertura por competência</h2>
    <p className="muted">Quantas pessoas produziram evidência de cada competência. Competência sem ninguém diz respeito ao caminho que o cenário ofereceu — não a uma falha da turma.</p>

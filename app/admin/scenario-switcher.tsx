@@ -1,5 +1,6 @@
 'use client';
 import{useMemo,useState}from'react';import{useRouter}from'next/navigation';
+import{quandoCurto}from'@/lib/mundo/quando';
 import{BookmarkPlus,Copy,Pencil,Play,PowerOff,Search,Trash2}from'lucide-react';
 import{Modal,useDialogo}from'@/app/ui/dialogo';
 import{CodigoDoMundo}from'./codigo-do-mundo';
@@ -9,7 +10,7 @@ export type ScenarioRow={key:string;title:string;domain:string;seat_role:string;
  live_since?:string|null;auto_off_at?:string|null;idle_hours?:number|null};
 
 const temJanela=(s:ScenarioRow)=>s.idle_hours!==undefined||s.live_since!==undefined;
-const quando=(iso?:string|null)=>iso?new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+const quando=quandoCurto;
 
 // Templates tendem a crescer — é a natureza deles, cada aula boa vira um. A
 // lista mostra os três mais recentes e o resto fica a um clique, em vez de

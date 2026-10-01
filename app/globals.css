@@ -73,8 +73,26 @@
 .painel-list{display:flex;flex-direction:column;gap:10px}
 .painel-row{display:flex;justify-content:space-between;align-items:center;gap:16px;text-decoration:none;color:inherit;padding:16px 18px}
 .painel-row:hover{background:#fff7df}
-.painel-row-main{display:flex;flex-direction:column;gap:4px;min-width:0}
+.painel-row-main{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 auto;text-decoration:none;color:inherit}
+/* A linha deixou de ser um link inteiro para caber caixa de seleção e botões:
+   clicar no nome continua abrindo, clicar num botão não abre nada. */
+.painel-row.marcada{background:#fff7df;box-shadow:5px 5px 0 #7b61ff}
+.painel-marca{width:19px;height:19px;flex:0 0 auto;accent-color:#7b61ff;cursor:pointer}
+.painel-acoes{display:flex;gap:7px;flex:0 0 auto}
+.btn.pequeno{padding:7px 11px;font-size:12px;box-shadow:2px 2px 0 #211a38}
+.btn.perigo{background:#ffd9df;color:#9f1d32;border-color:#9f1d32}
+.barra-selecao{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;padding:0 4px}
+.selecionar-todas{display:flex;align-items:center;gap:9px;font-weight:800;font-size:13px;cursor:pointer}
+.selecionar-todas input{width:19px;height:19px;accent-color:#7b61ff;cursor:pointer}
+.barra-botoes{display:flex;gap:8px;flex-wrap:wrap}
+.barra-confirma{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px;background:#fff1f2;border-color:#9f1d32;box-shadow:5px 5px 0 #9f1d32}
+.barra-confirma p{margin:5px 0 0;font-size:13px}
+.barra-recado{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:13px 16px;font-weight:700;font-size:13px}
+.barra-recado.ok{background:#dff8ea;border-color:#17643f;box-shadow:5px 5px 0 #17643f}
+.barra-recado.erro{background:#ffd9df;border-color:#9f1d32;box-shadow:5px 5px 0 #9f1d32}
+.barra-recado .btn{padding:5px 8px;box-shadow:2px 2px 0 #211a38;flex:0 0 auto}
 .painel-row-main b{font-size:15px}
+.painel-row-main b,.painel-row-main span{overflow-wrap:anywhere}
 .painel-stats{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 .painel h2{margin:0 0 6px}
 .painel p{line-height:1.65;color:#453e58}
@@ -93,7 +111,7 @@
 .replay-who small{display:block;color:#756d82;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
 .replay-text{color:#453e58;line-height:1.55}
 .replay-participante{background:#faf8ff}
-@media(max-width:700px){.replay-row{grid-template-columns:52px 1fr}.replay-text{grid-column:1/-1}.painel-row{flex-direction:column;align-items:flex-start}}
+@media(max-width:700px){.replay-row{grid-template-columns:52px 1fr}.replay-text{grid-column:1/-1}.painel-row{flex-wrap:wrap;align-items:flex-start}.painel-row-main{flex:1 1 180px}.painel-stats,.painel-acoes{flex:1 1 100%;justify-content:flex-start}}
 .login-divider{display:flex;align-items:center;gap:12px;margin:18px 0 16px;color:#8b8398;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
 .login-divider::before,.login-divider::after{content:'';flex:1;height:2px;background:#e9e2f2}
 .login-email{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
