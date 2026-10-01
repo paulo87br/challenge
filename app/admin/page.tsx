@@ -53,6 +53,28 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
   supabase.from('challenge_telemetry').select('session_id'),
   supabase.from('challenge_turns').select('*').order('created_at',{ascending:false}).limit(40)
  ]);
+ // Consumo: tudo, não os 40 turnos que a aba do motor mostra. São poucas linhas
+ // por sessão e é a única forma de somar a conta de uma turma inteira.
+ const[{data:todosTurnos},{data:todasChamadas}]=await Promise.all([
+  supabase.from('challenge_turns').select('session_id,provider,model,input_tokens,output_tokens'),
+  supabase.from('challenge_calls').select('session_id,seconds')
+ ]);
+ const mundoDaSessao=new Map((sessions||[]).map(row=>[row.id,row.scenario_key||'—']));
+ const consumo:Record<string,{modelos:Record<string,{model:string;provider:string;turnos:number;entrada:number;saida:number}>;voz:{chamadas:number;segundos:number}}>={};
+ const balde=(chave:string)=>consumo[chave]||=({modelos:{},voz:{chamadas:0,segundos:0}});
+ for(const t of todosTurnos||[]){
+  const mundo=mundoDaSessao.get(t.session_id);if(!mundo)continue;
+  const chave=`${t.provider||'—'}|${t.model||'—'}`;
+  for(const alvo of [balde(mundo),balde('todos')]){
+   const m=alvo.modelos[chave]||=({model:t.model||'',provider:t.provider||'',turnos:0,entrada:0,saida:0});
+   m.turnos+=1;m.entrada+=Number(t.input_tokens)||0;m.saida+=Number(t.output_tokens)||0;
+  }
+ }
+ for(const c of todasChamadas||[]){
+  const mundo=mundoDaSessao.get(c.session_id);if(!mundo)continue;
+  for(const alvo of [balde(mundo),balde('todos')]){alvo.voz.chamadas+=1;alvo.voz.segundos+=Number(c.seconds)||0}
+ }
+
  const{data:limitRows}=await supabase.from('challenge_rate_limits').select('*').order('provider');
  const{data:incidentRows}=await supabase.from('challenge_incidents').select('*').is('resolved_at',null).order('last_seen_at',{ascending:false}).limit(50);
  // Every query above tolerates a missing table: 003 may not be applied yet, and
@@ -130,5 +152,5 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  const voiceKeyConfigured=chaveDeVoz.estado==='ok';
 
  return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any} faltaMigracao={faltaMigracao}
-  usuario={{nome:nomeDoUsuario(user),email:String(user.email||'')}} chaves={chaves} chaveDeVoz={chaveDeVoz}/>;
+  usuario={{nome:nomeDoUsuario(user),email:String(user.email||'')}} chaves={chaves} chaveDeVoz={chaveDeVoz} consumo={consumo}/>;
 }

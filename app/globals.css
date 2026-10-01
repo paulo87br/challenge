@@ -596,3 +596,18 @@ body.modal-aberto{overflow:hidden}
 .nav-instrutor-item.atual{background:#211a38;color:#fff}
 @media(max-width:900px){.nav-instrutor{width:100%;justify-content:space-between}
  .nav-instrutor-item{flex:1;justify-content:center;padding:8px 6px;font-size:12px}}
+
+/* Consumo: a voz é quem decide a conta, e a barra mostra isso de relance. */
+.custo-total{display:flex;flex-direction:column;align-items:flex-end;gap:2px;border:2px solid #211a38;
+ border-radius:16px;padding:11px 15px;background:#fff7e9;box-shadow:3px 3px 0 #211a38}
+.custo-total b{font-size:23px;letter-spacing:-.03em}
+.custo-total small{font-size:11px;color:#756d82}
+.custo-partes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0 4px}
+.custo-parte{border:2px solid #211a38;border-radius:16px;padding:13px 15px;background:#fff}
+.custo-parte b{display:block;font-size:21px;margin:3px 0 4px;letter-spacing:-.03em}
+.custo-parte small{display:block;font-size:11px}
+.custo-fatia{display:block;height:7px;border-radius:999px;background:#ff4f91;margin:9px 0 6px;min-width:3px}
+.custo-fatia.texto{background:#7b61ff}
+.custo-tabela .people-row{grid-template-columns:minmax(0,2fr) .6fr 1fr 1fr 1fr}
+.custo-aviso{font-size:11px;line-height:1.5;margin-top:12px}
+@media(max-width:900px){.custo-total{align-items:flex-start}.custo-tabela .people-row{grid-template-columns:1fr 1fr}}
