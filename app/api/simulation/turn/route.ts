@@ -63,7 +63,7 @@ export async function POST(req:Request){
  };
  try{
   log('request','info','Turn received',{requestId});
-  const{world,action,sessionId,engine:requested,artifacts:requestedArtifacts,competencies:requestedCompetencies,news}=await req.json();
+  const{world,action,sessionId,engine:requested,artifacts:requestedArtifacts,competencies:requestedCompetencies,news,unknownMentions}=await req.json();
   const engine={provider:isProvider(requested?.provider)?requested.provider:DEFAULT_PROVIDER,
    model:String(requested?.model||'')||defaultModel(isProvider(requested?.provider)?requested.provider:DEFAULT_PROVIDER)};
   const artifacts:ScenarioArtifact[]=Array.isArray(requestedArtifacts)?requestedArtifacts:[];
@@ -115,6 +115,11 @@ export async function POST(req:Request){
    targetCharacter:target||undefined,
    conversationHistory,
    worldSoFar,
+   // Alguém chamado pelo nome que não é do elenco. O silêncio anterior era pior
+   // que qualquer resposta: a pessoa citava um nome e o mundo seguia como se
+   // nada tivesse sido dito.
+   unknownMentions:Array.isArray(unknownMentions)?unknownMentions.slice(0,5):[],
+   unknownMentionsDirective:'The participant named someone who is not in the cast. Never silently ignore it and never invent that this person is a colleague with facts of their own. Have the acting character react truthfully to the name: say they do not know anyone by it, ask who the participant means, or — only if the scenario clearly supports it — treat them as someone peripheral who is not part of this case. The person named never becomes a new character and never speaks.',
    publishedNews,
    newsDirective:'publishedNews is press the participant has already read. It is the repercussion of THIS case, not a new incident: never treat a headline as a separate event, never invent facts from it, and never let a character learn from it something their knowledge perimeter does not allow.',
    latestParticipantAction:action,

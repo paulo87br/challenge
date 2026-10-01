@@ -11,7 +11,9 @@ export type StoredSession={world:WorldState;evidence:EvidenceSignal[];assistant:
  // De qual sessão é o que está guardado aqui. Sem isso, entrar em outro mundo
  // faz o navegador servir a corrida anterior por cima da sessão nova: o
  // conteúdo de um mundo rodando contra a sessão de outro, sem aviso.
- sessionId?:string};
+ sessionId?:string;
+ // Quais e-mails já foram abertos. Fica no navegador porque é leitura, não ação.
+ seenMails?:Record<string,boolean>};
 
 export function loadSession():StoredSession|null{
  try{
@@ -20,7 +22,7 @@ export function loadSession():StoredSession|null{
   const parsed=JSON.parse(raw) as StoredSession;
   // A stored world from an older shape is worse than no world at all.
   if(!parsed?.world?.scenarioId||!Array.isArray(parsed.world.events))return null;
-  return{sessionId:parsed.sessionId||'',world:parsed.world,evidence:Array.isArray(parsed.evidence)?parsed.evidence:[],assistant:Array.isArray(parsed.assistant)?parsed.assistant:[],uploads:Array.isArray(parsed.uploads)?parsed.uploads:[],debrief:parsed.debrief||null,elapsedMs:Number(parsed.elapsedMs)||0,paused:Boolean(parsed.paused),savedAt:parsed.savedAt||0};
+  return{sessionId:parsed.sessionId||'',seenMails:parsed.seenMails||{},world:parsed.world,evidence:Array.isArray(parsed.evidence)?parsed.evidence:[],assistant:Array.isArray(parsed.assistant)?parsed.assistant:[],uploads:Array.isArray(parsed.uploads)?parsed.uploads:[],debrief:parsed.debrief||null,elapsedMs:Number(parsed.elapsedMs)||0,paused:Boolean(parsed.paused),savedAt:parsed.savedAt||0};
  }catch{return null}
 }
 

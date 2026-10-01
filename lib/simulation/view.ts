@@ -10,23 +10,35 @@ export function visibleEvents(world:WorldState):WorldEvent[]{
  return world.events.filter(event=>event.visible&&event.at<=world.minute);
 }
 
-// A conversation is everyone transitively pulled into the thread: the selected
-// character, whoever they addressed, and whoever got mentioned along the way.
-export function conversationMembers(chats:WorldEvent[],selectedCharacterId:string):Set<string>{
- const members=new Set<string>([selectedCharacterId]);
- let changed=true;
- while(changed){
-  changed=false;
-  for(const event of chats){
-   const people=[event.characterId,event.recipientCharacterId,...(event.mentionedCharacterIds||[])].filter(Boolean) as string[];
-   if(people.some(id=>members.has(id)))for(const id of people)if(!members.has(id)){members.add(id);changed=true}
-  }
- }
- return members;
+/**
+ * A conversa de uma pessoa é a conversa dela, e só.
+ *
+ * Isto era um fecho transitivo: marcar alguém ligava duas pessoas, a mensagem
+ * seguinte puxava uma terceira pelo laço, e em poucos turnos todo o elenco
+ * estava num fio só. Numa corrida real o resultado foi Lucas, Renato e Marta
+ * conversando juntos sobre assuntos que não tinham em comum.
+ *
+ * Marcar alguém continua valendo: a mensagem aparece no fio de quem foi marcado
+ * também, porque ele foi mesmo chamado ali. O que não acontece mais é os fios se
+ * fundirem por causa disso.
+ */
+export function quemAparece(event:WorldEvent):string[]{
+ return [event.characterId,event.recipientCharacterId,...(event.mentionedCharacterIds||[])]
+  .filter(Boolean) as string[];
+}
+
+export function conversationMembers(_chats:WorldEvent[],selectedCharacterId:string):Set<string>{
+ return new Set<string>([selectedCharacterId].filter(Boolean));
 }
 
 export function conversationChats(chats:WorldEvent[],members:Set<string>):WorldEvent[]{
- return chats.filter(event=>event.sender==='Você'
-  ?members.has(event.recipientCharacterId||'')
-  :members.has(event.characterId||'')||members.has(event.recipientCharacterId||''));
+ return chats.filter(event=>quemAparece(event).some(id=>members.has(id)));
+}
+
+/** Quem efetivamente apareceu neste fio, para a tela poder mostrar. */
+export function participantesDoFio(chats:WorldEvent[],selectedCharacterId:string):string[]{
+ const vistos=new Set<string>();
+ for(const e of conversationChats(chats,new Set([selectedCharacterId])))
+  for(const id of quemAparece(e))vistos.add(id);
+ return [...vistos];
 }

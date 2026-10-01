@@ -557,3 +557,33 @@ body.modal-aberto{overflow:hidden}
 .org-node.you{background:#eee9ff;box-shadow:3px 3px 0 #7b61ff}
 .org-responde{display:block;margin-top:5px;font-size:10px;color:#8d85a0}
 @media(max-width:900px){.org-blocos.varios{grid-template-columns:1fr}.org-filhos{margin-left:10px;padding-left:14px}}
+
+/* E-mail: o não lido salta, o lido recua. */
+.mail-row.mail-lido b{font-weight:650;color:#6d6680}
+.mail-row.mail-lido strong{font-weight:650;color:#514a65}
+.mail-row.mail-nao-lido{background:#fffdf4}
+.mail-row.mail-nao-lido b,.mail-row.mail-nao-lido strong{font-weight:900;color:#211a38}
+.mail-row.mail-nao-lido .unread-dot{margin:0 7px 0 0}
+.mail-folders b.nao-lidos{background:#ff4f91;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px}
+.inbox-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.filtro-nao-lidos{border:2px solid #cfc6df;background:#fff;color:#514a65;border-radius:999px;
+ padding:5px 11px;font-size:11px;font-weight:800;cursor:pointer}
+.filtro-nao-lidos.ativo{border-color:#211a38;background:#ffe66d;color:#211a38}
+
+/* A ligação entrando toma a tela: é disso que uma ligação é feita. */
+.chamada-veu{z-index:80}
+.chamada-card{width:100%;max-width:400px;background:#fff;border:3px solid #211a38;border-radius:26px;
+ box-shadow:8px 8px 0 #211a38;padding:30px 26px 24px;text-align:center}
+.chamada-card h2{margin:4px 0 2px;font-size:25px;letter-spacing:-.03em}
+.chamada-card>.muted{margin:0 0 4px;font-size:13px}
+.chamada-pulso{position:relative;display:inline-grid;place-items:center;margin-bottom:16px}
+.chamada-avatar{width:76px;height:76px;border-radius:26px;font-size:22px}
+.chamada-pulso::after{content:'';position:absolute;inset:-10px;border-radius:32px;border:3px solid #12b89a;
+ animation:chama 1.6s ease-out infinite}
+@keyframes chama{0%{transform:scale(.9);opacity:.9}100%{transform:scale(1.25);opacity:0}}
+.chamada-motivo{background:#fff7e9;border:2px solid #211a38;border-radius:15px;padding:11px 13px;
+ margin:14px 0 4px;font-size:13px;line-height:1.55;text-align:left}
+.chamada-acoes{display:flex;gap:10px;margin:18px 0 12px}
+.chamada-acoes .btn{flex:1;justify-content:center;padding:13px}
+.btn.atender{background:#12b89a;color:#fff}
+@media(prefers-reduced-motion:reduce){.chamada-pulso::after{animation:none;opacity:.5}}

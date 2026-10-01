@@ -1,6 +1,7 @@
 'use client';
 import{useState}from'react';import type{KeyboardEvent}from'react';
 import type{Character}from'@/lib/simulation/types';
+export{mencoesDesconhecidas,mentionedCharacterIds}from'@/lib/simulation/mencoes';
 
 const TRAILING_MENTION=/@([\p{L}]*)$/u;
 
@@ -11,14 +12,6 @@ function fold(value:string){return String(value||'').normalize('NFD').replace(/[
 
 // Marking someone is a real act in this world: it pulls that person into the
 // thread. The participant needs the same affordance the characters already have.
-export function mentionedCharacterIds(text:string,characters:Character[]){
- const body=fold(text);
- return characters.filter(character=>{
-  const first=fold(String(character.name||'').split(' ')[0]);
-  return Boolean(first)&&body.includes('@'+first);
- }).map(character=>character.id);
-}
-
 export function MentionComposer({value,onChange,onSubmit,characters,disabled,placeholder,label}:{
  value:string;onChange:(next:string)=>void;onSubmit:()=>void;characters:Character[];
  disabled:boolean;placeholder:string;label:string;
