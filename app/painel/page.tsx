@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{NavInstrutor}from'@/app/ui/nav-instrutor';import{nomeDoUsuario}from'@/lib/mundo/usuario';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
+import{expirarOciosos}from'@/lib/supabase/sessions';import{estadoDaSessao}from'@/lib/mundo/estado-da-sessao';
 import{NoAccess}from'./no-access';
 
 export const dynamic='force-dynamic';
@@ -14,6 +15,10 @@ export default async function Painel(){
  const{data:isInstructor}=await supabase.rpc('is_challenge_instructor');
  if(!isInstructor)return <NoAccess reason="Sua conta não está na lista de instrutores deste Challenge."/>;
 
+ // O instrutor olhando a lista é um dos dois momentos em que a expiração
+ // precisa valer: o outro é alguém tentando entrar. Varrer antes de ler evita
+ // mostrar como aberta uma sessão que o próprio servidor já considera vencida.
+ await expirarOciosos();
  const{data:sessions}=await supabase.from('challenge_sessions')
   .select('id,user_id,scenario_key,status,started_at,updated_at,world_state,debrief')
   .order('updated_at',{ascending:false}).limit(100);
@@ -53,7 +58,7 @@ export default async function Painel(){
       <span className="tag">{countBy(telemetry,session.id)} ações</span>
       <span className="tag">{signals} evidências</span>
       {risks>0&&<span className="tag hot">{risks} de risco</span>}
-      <span className={'diagnostic-pill '+(session.status==='completed'?'ok':'attention')}>{session.status==='completed'?'encerrada':'em andamento'}</span>
+      <span className={('diagnostic-pill '+estadoDaSessao(session.status,Boolean(session.debrief)).tom).trim()}>{estadoDaSessao(session.status,Boolean(session.debrief)).rotulo}</span>
       {session.debrief&&<span className="tag">debrief</span>}
      </div>
     </Link>;

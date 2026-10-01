@@ -1,5 +1,6 @@
 'use client';
 import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{NavInstrutor}from'@/app/ui/nav-instrutor';import{Custo,type UsoDeVoz,type UsoPorModelo}from'./custo';
+import{estadoDaSessao}from'@/lib/mundo/estado-da-sessao';
 import{useState}from'react';import Link from 'next/link';
 import{SlidersHorizontal,Users,Bug,TriangleAlert,Check}from'lucide-react';
 import{ScenarioForm}from'./scenario-form';import{LimitsEditor,type RateLimit}from'./limits-editor';
@@ -93,8 +94,8 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
       {!person.sessionId&&<span className="muted">não começou</span>}
       {/* "em andamento" era dito para qualquer sessão sem debrief, inclusive
           uma pausada ou abandonada. O estado da sessão já estava no dado. */}
-      {person.sessionId&&!person.hasDebrief&&<span className={'diagnostic-pill '+(person.status==='active'?'attention':'')}>
-       {person.status==='paused'?'pausada':person.status==='abandoned'?'abandonada':person.status==='completed'?'encerrada sem debrief':'em andamento'}</span>}
+      {person.sessionId&&!person.hasDebrief&&<span className={('diagnostic-pill '+estadoDaSessao(person.status,false).tom).trim()}>
+       {estadoDaSessao(person.status,false).rotulo}</span>}
       {person.hasDebrief&&<span className="diagnostic-pill ok">debrief entregue</span>}
       {person.sessionId&&<Link className="btn" href={`/painel/${person.sessionId}`}>Abrir</Link>}
      </span>

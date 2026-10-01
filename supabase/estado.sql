@@ -31,7 +31,8 @@ with checagens(migracao, o_que_cria, presente) as (values
  -- A 020 é dado: o sinal é o caso ter eventos para disparar sozinho.
  ('020 eventos do caso',     'juridico com eventos',    coalesce((select jsonb_array_length(events) from public.challenge_scenarios where key='juridico'),0) > 0),
  ('021 cenário sobrevive',   'updated_by on delete',    exists(select 1 from pg_constraint where conname='challenge_scenarios_updated_by_fkey' and confdeltype='n')),
- ('022 organização do mundo', 'scenarios.organization',  exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='organization'))
+ ('022 organização do mundo', 'scenarios.organization',  exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='organization')),
+ ('023 sessão sem dono',     'encerrar_sessoes_ociosas()', exists(select 1 from pg_proc where proname='challenge_encerrar_sessoes_ociosas'))
 )
 select
  case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,

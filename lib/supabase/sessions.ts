@@ -12,7 +12,7 @@ export type SessionBundle={session:SessionRow;scenario:ScenarioConfig;evidenceCo
 // no ar ao mesmo tempo, "qual mundo" deixa de ser dedutível e passa a ser uma
 // escolha: por código, por link, ou na lista que o /lab mostra.
 export type{MundoNoAr};
-export{expirarMundosOciosos};
+export{expirarOciosos};
 export type Entrada=SessionBundle|{escolha:MundoNoAr[];faltaMigracao?:boolean;usuario?:Usuario};
 export function pedeEscolha(entrada:Entrada|null):entrada is{escolha:MundoNoAr[];faltaMigracao?:boolean}{
  return Boolean(entrada&&'escolha'in entrada);
@@ -39,17 +39,21 @@ const CAMPOS_MUNDO='key,title,domain,seat_role,mission';
  * participante tem, nem precisa ter, permissão de executá-la. Sem a chave, o
  * app segue funcionando e a janela apenas não fecha sozinha.
  */
-async function expirarMundosOciosos(){
+async function expirarOciosos(){
  const admin=createSupabaseAdminClient();
  if(!admin)return;
- const{error}=await admin.rpc('challenge_expirar_mundos_ociosos');
- // Antes da 018 a função não existe. Falhar aqui não pode impedir alguém de
- // entrar, mas sumir com o erro foi o que já custou caro neste projeto.
- if(error)console.warn('expirar_mundos_ociosos',error.message);
+ // Duas varreduras, porque são duas coisas: o mundo sai do ar e a sessão que
+ // ficou dentro dele para de contar como alguém sentado à mesa.
+ for(const fn of['challenge_expirar_mundos_ociosos','challenge_encerrar_sessoes_ociosas']){
+  const{error}=await admin.rpc(fn);
+  // Antes da migração a função não existe. Falhar aqui não pode impedir alguém
+  // de entrar, mas sumir com o erro foi o que já custou caro neste projeto.
+  if(error)console.warn(fn,error.message);
+ }
 }
 
 export async function mundosNoAr(supabase:any):Promise<{mundos:MundoNoAr[];faltaMigracao:boolean}>{
- await expirarMundosOciosos();
+ await expirarOciosos();
  const filtro=(q:any)=>q.eq('active',true).eq('is_template',false).order('title');
  const{data,error}=await filtro(supabase.from('challenge_scenarios').select(`${CAMPOS_MUNDO},join_code`));
  if(!error)return{mundos:(data||[]) as MundoNoAr[],faltaMigracao:false};

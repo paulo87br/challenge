@@ -1,7 +1,7 @@
 import{redirect}from'next/navigation';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';import{initialWorld}from'@/lib/simulation/runtime';
-import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{expirarMundosOciosos}from'@/lib/supabase/sessions';import{FAILURE_LABELS}from'@/lib/ai/errors';import{estadoDaVariavel,estadoDasChaves}from'@/lib/ai/chaves';
+import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{expirarOciosos}from'@/lib/supabase/sessions';import{FAILURE_LABELS}from'@/lib/ai/errors';import{estadoDaVariavel,estadoDasChaves}from'@/lib/ai/chaves';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'Studio · Challenge'};
@@ -22,7 +22,7 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  // Antes da 014 as colunas não existem e a consulta erra, daí o mesmo caminho.
  // O Studio também é um momento em que a expiração precisa já ter valido:
  // abrir a tela e ver no ar um mundo vencido seria mentir para quem conduz.
- await expirarMundosOciosos();
+ await expirarOciosos();
  const pedido=typeof searchParams?.cenario==='string'?searchParams.cenario:'';
  const{data:pedidoRow}=pedido
   ?await supabase.from('challenge_scenarios').select('*').eq('key',pedido).maybeSingle()
