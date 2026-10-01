@@ -59,6 +59,31 @@ export async function POST(req:Request){
    return NextResponse.json({saved:true,signals:0,reason:'o Observer não conseguiu ler esta chamada'});
   }
 
+  // A ligação vira evento do mundo. Sem isto, o que foi combinado por voz não
+  // existia para mais ninguém: o Director não via, os outros personagens não
+  // sabiam, e a própria pessoa do telefone esquecia na mensagem seguinte.
+  if(admin&&lines.length>=2){
+   // Quem estava do outro lado está no registro da chamada, não no corpo do
+   // pedido: confiar no cliente para dizer com quem ele falou seria dar a ele a
+   // caneta do mundo.
+   const{data:chamada}=await admin.from('challenge_calls')
+    .select('character_id,character_name').eq('id',callId).eq('session_id',sessionId).maybeSingle();
+   const quem=chamada?{id:chamada.character_id,name:chamada.character_name}:null;
+   const falas=lines.map((l:any)=>`${l.role==='participant'?'Você':(quem?.name||'A pessoa')}: ${String(l.text||'').trim()}`).join('\n');
+   const evento={
+    id:`call-${callId}`,channel:'call',
+    sender:quem?.name?`${quem.name} · ligação`:'Ligação',
+    characterId:quem?.id||undefined,
+    subject:`Ligação de ${Math.round(Number(seconds)||0)}s`,
+    body:falas.slice(0,6000),
+    urgency:0.6,visible:true,at:Number((session.world_state as any)?.minute)||0};
+   const mundo=(session.world_state||{}) as any;
+   const jaTem=(mundo.events||[]).some((e:any)=>e.id===evento.id);
+   if(!jaTem)await admin.from('challenge_sessions')
+    .update({world_state:{...mundo,events:[...(mundo.events||[]),evento]},updated_at:new Date().toISOString()})
+    .eq('id',sessionId);
+  }
+
   if(admin&&signals.length)await admin.from('challenge_evidence').insert(signals.map(signal=>({
    session_id:sessionId,competency:signal.competency,behavior:signal.behavior,evidence:signal.evidence,
    strength:Number(signal.strength)||0,confidence:Number(signal.confidence)||0,

@@ -19,7 +19,10 @@ export function callKey(){
 // The same knowledge perimeter the chat enforces. Without this a character who
 // cannot discuss something in writing discusses it happily on the phone, and
 // the world stops being one world.
-export function callInstructions(character:Character,world:{title?:string;seatRole?:string;facts?:Record<string,unknown>}){
+export type HistoricoDaLigacao={canal:string;de:string;texto:string}[];
+
+export function callInstructions(character:Character,world:{title?:string;seatRole?:string;facts?:Record<string,unknown>;
+ historico?:HistoricoDaLigacao;emVolta?:HistoricoDaLigacao;imprensa?:string[]}){
  const catalog=(world.facts as any)?.knowledgeCatalog||{};
  const known=(character.state?.knownFacts||[]).map(fact=>{
   const meaning=catalog[fact];
@@ -34,7 +37,23 @@ export function callInstructions(character:Character,world:{title?:string;seatRo
   character.concerns?.length?`Suas preocupações: ${character.concerns.join('; ')}.`:'',
   `\nQUEM LIGOU: ocupa o assento de ${world.seatRole||'um papel interno'} nesta organização. Contexto: ${world.title||'o projeto em curso'}.`,
   `\nO QUE VOCÊ SABE (seu perímetro; nada além disto):\n${known}`,
-  `\nComece atendendo o telefone como esta pessoa atenderia, em uma frase curta.`
+  // Sem isto a ligação começava do zero: a pessoa tinha trocado e-mails a manhã
+  // inteira com este personagem e ele atendia sem lembrar de nada. Os canais
+  // eram mundos separados.
+  world.historico?.length
+   ?`\nO QUE VOCÊS JÁ TRATARAM (por escrito, antes desta ligação — você lembra disto):\n`+
+    world.historico.slice(-14).map(l=>`[${l.canal}] ${l.de}: ${l.texto}`).join('\n')
+   :'\nVocês ainda não trocaram nenhuma mensagem antes desta ligação.',
+  world.emVolta?.length
+   ?`\nO QUE ACONTECEU EM VOLTA (outras pessoas, no mesmo caso — você sabe disto só se couber no seu perímetro):\n`+
+    world.emVolta.slice(-8).map(l=>`[${l.canal}] ${l.de}: ${l.texto}`).join('\n')
+   :'',
+  world.imprensa?.length
+   ?`\nO QUE SAIU NA IMPRENSA (repercussão deste mesmo caso, não um caso novo):\n`+
+    world.imprensa.map(t=>`- ${t}`).join('\n')
+   :'',
+  `\nNunca trate uma manchete como um incidente separado, e nunca invente fato que não esteja acima.`,
+  `\nComece atendendo o telefone como esta pessoa atenderia, em uma frase curta. Se já falaram por escrito, atenda como quem está continuando um assunto, não como quem nunca ouviu falar.`
  ].filter(Boolean).join('\n');
 }
 

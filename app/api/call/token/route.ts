@@ -46,7 +46,24 @@ export async function POST(req:Request){
    return NextResponse.json({error:'call_budget_exhausted',
     detail:`O tempo de chamada desta sessão acabou (${Math.round(perSession/60)} min no total).`},{status:409});
 
-  const instructions=callInstructions(character,{title:world.title,seatRole:world.seat?.role,facts:world.facts});
+  // O que esta pessoa e o participante já trocaram, em qualquer canal, e o que
+  // o resto do mundo viu. A ligação deixa de ser um canal à parte.
+  const eventos=Array.isArray(world.events)?world.events:[];
+  const comEla=(e:any)=>e.characterId===character.id||e.recipientCharacterId===character.id
+   ||(e.mentionedCharacterIds||[]).includes(character.id);
+  const linha=(e:any)=>({canal:e.channel==='mail'?'e-mail':e.channel==='call'?'ligação':'conversa',
+   de:e.sender==='Você'?'quem ligou':String(e.sender||'alguém'),
+   texto:[e.subject,String(e.body||'')].filter(Boolean).join(' — ').slice(0,300)});
+  const visiveis=eventos.filter((e:any)=>e.visible!==false&&e.at<=(world.minute??e.at));
+  const historico=visiveis.filter(comEla).map(linha);
+  const emVolta=visiveis.filter((e:any)=>!comEla(e)).map(linha);
+  const decorrido=Math.max(0,(world.minute||0)-(world.startMinute??world.minute??0));
+  const imprensa=(Array.isArray(scenario.news)?scenario.news:[])
+   .filter((n:any)=>(Number(n.at)||0)<=decorrido)
+   .map((n:any)=>`${n.headline}${n.summary?` — ${n.summary}`:''}`);
+
+  const instructions=callInstructions(character,{title:world.title,seatRole:world.seat?.role,facts:world.facts,
+   historico,emVolta,imprensa});
   const voice=resolveVoice(character,cast,String(scenario.call_voice||'marin'));
 
   let minted;

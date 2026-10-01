@@ -68,4 +68,32 @@ end
 $do$;
 `;
 writeFileSync('supabase/migrations/015_caso_juridico.sql',sql);
-console.log(`015_caso_juridico.sql gerada · ${caso.characters.length} pessoas · ${caso.artifacts.length} artefatos · ${caso.competencies.length} competências · ${verificar} [VERIFICAR — Paulo]`);
+
+// Os eventos moram num arquivo depois da 019, que cria a coluna. Na 015 eles
+// não funcionavam: ela roda antes da 019 na ordem da cadeia, a coluna ainda não
+// existe, o bloco guardado pula, e um banco novo terminava sem evento nenhum.
+const eventos=`-- O que o mundo diz por conta própria, e quando.
+--
+-- Gerada a partir de content/caso-juridico.json. Não edite à mão:
+--   node scripts/gerar-migracao-caso.mjs
+--
+-- 'at' é minutos depois do início da sessão: 0 já está lá quando a pessoa
+-- senta, e qualquer número maior chega durante a corrida. É isto que faz o
+-- mundo procurar o participante em vez de só responder a ele.
+--
+-- Depende da 019, que cria a coluna. O bloco guardado existe para a ordem entre
+-- as duas não importar quando alguém reaplica só esta.
+do $do$
+begin
+ if exists(
+  select 1 from information_schema.columns
+   where table_schema='public' and table_name='challenge_scenarios' and column_name='events'
+ ) then
+  update public.challenge_scenarios set events=${j(caso.events||[])}, updated_at=now()
+   where key=${t(caso.key)};
+ end if;
+end
+$do$;
+`;
+writeFileSync('supabase/migrations/020_eventos_do_caso.sql',eventos);
+console.log(`015 + 020 geradas · ${caso.characters.length} pessoas · ${caso.artifacts.length} artefatos · ${caso.competencies.length} competências · ${verificar} [VERIFICAR — Paulo] · ${(caso.events||[]).length} eventos`);

@@ -26,7 +26,10 @@ with checagens(migracao, o_que_cria, presente) as (values
  ('017 imprensa no tempo',   'news.at em minutos',      not exists(
    select 1 from public.challenge_scenarios s, jsonb_array_elements(coalesce(s.news,'[]'::jsonb)) n
     where (n->>'at')::int > 240)),
- ('018 mundo expira',       'expirar_mundos_ociosos()', exists(select 1 from pg_proc where proname='challenge_expirar_mundos_ociosos'))
+ ('018 mundo expira',       'expirar_mundos_ociosos()', exists(select 1 from pg_proc where proname='challenge_expirar_mundos_ociosos')),
+ ('019 eventos do cenário',  'scenarios.events',        exists(select 1 from information_schema.columns where table_name='challenge_scenarios' and column_name='events')),
+ -- A 020 é dado: o sinal é o caso ter eventos para disparar sozinho.
+ ('020 eventos do caso',     'juridico com eventos',    coalesce((select jsonb_array_length(events) from public.challenge_scenarios where key='juridico'),0) > 0)
 )
 select
  case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,

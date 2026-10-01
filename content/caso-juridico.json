@@ -379,22 +379,22 @@
    "article": "Uma publicação em rede social feita por advogado atuante na área trabalhista alcançou grande circulação ao descrever um recurso protocolado com precedentes que não existiam.\n\nO texto não nomeia a empresa nem o escritório, mas descreve o segmento, o porte e o tipo de processo. Comentários do setor já especulam sobre quem seriam as partes.\n\n\"O problema não é a ferramenta\", escreveu o autor. \"O problema é assinar sem ler e depois procurar o estagiário mais novo da sala.\"\n\nA publicação acumula compartilhamentos entre profissionais de departamentos jurídicos e de compliance."
   },
   {
-   "id": "jur-setor",
-   "source": "Boletim Jurídico & Tecnologia",
-   "at": 26,
-   "tag": "Setor",
-   "headline": "Departamentos jurídicos passam a exigir cláusula de uso de IA em contratos com escritórios",
-   "summary": "Levantamento com áreas jurídicas de grandes empresas aponta movimento recente de revisão contratual com prestadores.",
-   "article": "Áreas jurídicas de empresas de médio e grande porte começaram a revisar contratos com escritórios externos para incluir previsão expressa sobre uso de ferramentas de inteligência artificial.\n\nOs pontos mais citados são: obrigação de informar o uso, vedação ao envio de dados do cliente para ferramentas não contratadas, e responsabilidade por conteúdo não verificado.\n\n\"Até ano passado ninguém perguntava\", disse a diretora jurídica de uma empresa ouvida sob anonimato. \"Hoje é a primeira pergunta da due diligence.\""
+   "id": "jur-outra",
+   "source": "Portal Jurídico · últimas",
+   "at": 14,
+   "tag": "Repercussão",
+   "headline": "Decisão que aplicou multa por precedentes inexistentes começa a ser citada em outros processos",
+   "summary": "A decisão do caso da transportadora passou a ser usada como referência por advogados em pedidos de verificação de jurisprudência.",
+   "article": "A decisão que aplicou multa por litigância de má-fé em razão de precedentes não localizados começou a aparecer como citação em petições de outros processos.\n\nAdvogados têm usado o precedente para pedir que a parte contrária comprove a existência da jurisprudência invocada. Em pelo menos dois pedidos protocolados esta semana, a decisão aparece nominalmente.\n\nO caso original segue sem manifestação pública da empresa envolvida ou do escritório que assina a peça."
   },
   {
-   "id": "jur-outra",
-   "source": "Tecnologia & Negócios",
-   "at": 14,
-   "tag": "Mercado",
-   "headline": "Empresa é notificada após dados de funcionários serem colados em ferramenta de IA gratuita",
-   "summary": "O caso, em outro setor, envolveu planilha com dados de saúde enviada por um prestador terceirizado.",
-   "article": "Uma empresa do setor de serviços foi notificada depois que se apurou que um prestador terceirizado havia inserido planilha com dados de funcionários, incluindo informações de saúde, em uma ferramenta de inteligência artificial de uso gratuito.\n\nA empresa alegou que o prestador agiu por conta própria e fora do escopo contratado. A apuração se concentrou em quem definia a finalidade do tratamento e quem deveria ter fiscalizado.\n\nEspecialistas ouvidos avaliam que a discussão sobre papéis na cadeia tende a se repetir sempre que o contrato for silente sobre o tema."
+   "id": "jur-setor",
+   "source": "Boletim Jurídico & Tecnologia",
+   "at": 28,
+   "tag": "Repercussão",
+   "headline": "Ofício à OAB sobre peça com precedentes inexistentes já tramita, segundo fontes",
+   "summary": "A apuração discute se a responsabilidade recai sobre o profissional que assinou, sobre o escritório ou sobre a empresa que contratou.",
+   "article": "O ofício enviado à Ordem a respeito da peça com precedentes não localizados já tramita, segundo pessoas a par do caso.\n\nA discussão central não é a ferramenta usada, e sim quem responde: o profissional que assinou sem conferir, o escritório que não fiscalizou, ou a empresa que contratou e não exigiu nada por escrito.\n\n\"O contrato silente é o que transforma isso numa briga\", disse um advogado ouvido sob anonimato. \"Quando ninguém escreveu de quem era a obrigação, todo mundo tem um argumento.\"\n\nNem a empresa nem o escritório se manifestaram."
   }
  ],
  "events": [
@@ -407,7 +407,7 @@
    "body": "Prezada Diretoria Jurídica, tivemos um incidente pontual no recurso do processo do sr. J.P.S. Um estagiário do nosso time utilizou ferramenta de inteligência artificial na pesquisa de precedentes sem seguir nossos procedimentos. O tribunal aplicou multa e oficiou a OAB. Entendemos que se trata de episódio isolado e já afastamos o profissional. Envio em anexo nossa carta com uma proposta de desconto para encerrarmos o tema. Sigo à disposição.",
    "urgency": 0.85,
    "visible": true,
-   "at": 535
+   "at": 0
   },
   {
    "id": "jur-chat-1",
@@ -417,7 +417,7 @@
    "body": "Vi a decisão. Antes de qualquer coisa: alguém sabe o que exatamente foi colado nessa ferramenta? Se foi o dossiê do processo, tinha atestado médico ali dentro.",
    "urgency": 0.75,
    "visible": true,
-   "at": 548
+   "at": 2
   },
   {
    "id": "jur-chat-2",
@@ -427,7 +427,49 @@
    "body": "Acabei de ver um post sobre isso circulando. Preciso de uma nota até o fim do dia dizendo que foi erro de um estagiário do escritório. Isso não pode virar assunto nosso.",
    "urgency": 0.9,
    "visible": true,
-   "at": 554
+   "at": 6
+  },
+  {
+   "id": "jur-mail-2",
+   "channel": "mail",
+   "sender": "Daniel Rocha · RH",
+   "characterId": "daniel",
+   "subject": "Triagem de currículos — começo semana que vem",
+   "body": "Oi! Fechamos a ferramenta de triagem de currículos e queremos ligar na segunda. Outras transportadoras já usam. Preciso só de um ok seu para seguir — imagino que não tenha nada demais, é só leitura de currículo.",
+   "urgency": 0.5,
+   "visible": true,
+   "at": 12
+  },
+  {
+   "id": "jur-call-1",
+   "channel": "call",
+   "sender": "Helena Braga · CEO",
+   "characterId": "helena",
+   "body": "A Helena está te ligando. O conselho pediu posição e ela quer a nota pública fechada agora.",
+   "urgency": 0.9,
+   "visible": true,
+   "at": 18
+  },
+  {
+   "id": "jur-chat-3",
+   "channel": "chat",
+   "sender": "Lucas · Estagiário",
+   "characterId": "lucas",
+   "body": "Oi. Me falaram para procurar você. Eu ainda tenho o histórico da conversa na minha conta, posso exportar se precisar. Só queria entender se eu vou ser responsabilizado sozinho por isso.",
+   "urgency": 0.7,
+   "visible": true,
+   "at": 26
+  },
+  {
+   "id": "jur-mail-3",
+   "channel": "mail",
+   "sender": "Renato Tavares · Albuquerque & Tavares",
+   "characterId": "renato",
+   "subject": "Ofício da OAB — proposta de resposta conjunta",
+   "body": "Prezada Diretoria, a Ordem pediu informações sobre o episódio. Sugiro uma resposta conjunta, alinhada entre escritório e empresa, atribuindo o ocorrido à conduta isolada do estagiário, que já foi afastado. Mantemos a proposta de desconto nos honorários do trimestre.",
+   "urgency": 0.8,
+   "visible": true,
+   "at": 34
   }
  ]
 }

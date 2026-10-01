@@ -63,7 +63,7 @@ export async function POST(req:Request){
  };
  try{
   log('request','info','Turn received',{requestId});
-  const{world,action,sessionId,engine:requested,artifacts:requestedArtifacts,competencies:requestedCompetencies}=await req.json();
+  const{world,action,sessionId,engine:requested,artifacts:requestedArtifacts,competencies:requestedCompetencies,news}=await req.json();
   const engine={provider:isProvider(requested?.provider)?requested.provider:DEFAULT_PROVIDER,
    model:String(requested?.model||'')||defaultModel(isProvider(requested?.provider)?requested.provider:DEFAULT_PROVIDER)};
   const artifacts:ScenarioArtifact[]=Array.isArray(requestedArtifacts)?requestedArtifacts:[];
@@ -84,15 +84,39 @@ export async function POST(req:Request){
   }
   log('queue','ok','Capacity granted',{ticket:claim.ticketId,available:Math.round(claim.available)});
   log('context','ok','Context assembled',{channel:action.channel,action:action.action,targetCharacterId:action.characterId,target:target?.name,events:world.events?.length||0,telemetry:world.telemetry?.length||0});
-  const conversationHistory=(world.events||[]).filter((e:any)=>{
-   if(action.channel==='chat')return e.channel==='chat'&&(e.characterId===action.characterId||e.recipientCharacterId===action.characterId);
-   if(action.channel==='mail')return e.channel==='mail'&&(e.characterId===action.characterId||e.recipientCharacterId===action.characterId);
-   return false
-  }).slice(-20).map((e:any)=>({sender:e.sender,body:e.body,subject:e.subject,at:e.at,direction:e.sender==='Você'?'participant_to_character':'character_to_participant'}));
+  // Tudo o que já foi trocado com esta pessoa, em qualquer canal.
+  //
+  // Antes o histórico era filtrado pelo canal da ação: quem tratou de um
+  // assunto por e-mail chegava ao chat sem lembrar de nada, e a ligação não
+  // existia para nenhum dos dois. Num teste real isso apareceu como personagens
+  // se contradizendo sobre o próprio caso.
+  const comEssaPessoa=(e:any)=>e.characterId===action.characterId||e.recipientCharacterId===action.characterId
+   ||(e.mentionedCharacterIds||[]).includes(action.characterId);
+  const conversationHistory=(world.events||[])
+   .filter((e:any)=>['chat','mail','call'].includes(e.channel)&&comEssaPessoa(e))
+   .slice(-24).map((e:any)=>({channel:e.channel,sender:e.sender,body:e.body,subject:e.subject,at:e.at,
+    direction:e.sender==='Você'?'participant_to_character':'character_to_participant'}));
+
+  // O que o resto do mundo viu acontecer. Sem isto cada personagem reconstrói o
+  // caso sozinho a cada turno e eles divergem entre si.
+  const worldSoFar=(world.events||[])
+   .filter((e:any)=>e.visible!==false&&e.at<=world.minute&&!comEssaPessoa(e))
+   .slice(-12).map((e:any)=>({channel:e.channel,sender:e.sender,subject:e.subject,
+    body:String(e.body||'').slice(0,240),at:e.at}));
+
+  // A imprensa que o participante já leu. Era mostrada na tela dele e escondida
+  // do motor: ele citava uma manchete e a pessoa do outro lado não fazia ideia.
+  const decorrido=Math.max(0,(world.minute||0)-(world.startMinute??world.minute??0));
+  const publishedNews=(Array.isArray(news)?news:[])
+   .filter((n:any)=>(Number(n.at)||0)<=decorrido)
+   .map((n:any)=>({tag:n.tag,source:n.source,headline:n.headline,summary:n.summary}));
   const context={
    world:{...world,telemetry:undefined,events:undefined},
    targetCharacter:target||undefined,
    conversationHistory,
+   worldSoFar,
+   publishedNews,
+   newsDirective:'publishedNews is press the participant has already read. It is the repercussion of THIS case, not a new incident: never treat a headline as a separate event, never invent facts from it, and never let a character learn from it something their knowledge perimeter does not allow.',
    latestParticipantAction:action,
    recentTelemetry:[...(world.telemetry||[]).slice(-8),action],
    runtimeDirective:'This is a live professional simulation. Continue the conversation as the target character. Reason from the scenario, the character knowledge perimeter and conversation history. Answer the exact latest question, add useful detail when supported, distinguish what the character knows from what they infer, and never repeat the previous answer merely because the topic is similar. If a detail is unknown, identify the realistic source/person/artifact that would contain it. Generate the character response now. Return the result as valid JSON.'
