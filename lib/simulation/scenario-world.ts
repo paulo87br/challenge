@@ -43,6 +43,7 @@ export function worldFor(scenario:ScenarioConfig|null):WorldState{
   characters,
   facts:{...initialWorld.facts,...(scenario.knowledge||{}),
    mission:scenario.mission,worldDescription:scenario.world_description,
+   organizacao:(scenario as any).organization||'',
    // Os documentos do próprio cenário vinham por ...scenario.knowledge e eram
    // apagados aqui: a chave era reconstruída a partir dos documentos do Atlas
    // mais os artefatos. O mundo anunciava em documents_available três peças do

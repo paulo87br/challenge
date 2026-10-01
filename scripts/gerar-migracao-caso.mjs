@@ -72,7 +72,7 @@ writeFileSync('supabase/migrations/015_caso_juridico.sql',sql);
 // Os eventos moram num arquivo depois da 019, que cria a coluna. Na 015 eles
 // não funcionavam: ela roda antes da 019 na ordem da cadeia, a coluna ainda não
 // existe, o bloco guardado pula, e um banco novo terminava sem evento nenhum.
-const eventos=`-- O que o mundo diz por conta própria, e quando.
+const eventos=`-- O que o caso precisa de colunas que nasceram depois da 015.
 --
 -- Gerada a partir de content/caso-juridico.json. Não edite à mão:
 --   node scripts/gerar-migracao-caso.mjs
@@ -81,8 +81,10 @@ const eventos=`-- O que o mundo diz por conta própria, e quando.
 -- senta, e qualquer número maior chega durante a corrida. É isto que faz o
 -- mundo procurar o participante em vez de só responder a ele.
 --
--- Depende da 019, que cria a coluna. O bloco guardado existe para a ordem entre
--- as duas não importar quando alguém reaplica só esta.
+-- Duas coisas moram aqui porque a 015 roda antes das migrações que criam suas
+-- colunas: os acontecimentos agendados (019) e a organização em que o
+-- participante se senta (022). Cada bloco confere a própria coluna, então a
+-- ordem entre eles e as migrações de schema não importa.
 do $do$
 begin
  if exists(
@@ -90,6 +92,18 @@ begin
    where table_schema='public' and table_name='challenge_scenarios' and column_name='events'
  ) then
   update public.challenge_scenarios set events=${j(caso.events||[])}, updated_at=now()
+   where key=${t(caso.key)};
+ end if;
+end
+$do$;
+
+do $do$
+begin
+ if exists(
+  select 1 from information_schema.columns
+   where table_schema='public' and table_name='challenge_scenarios' and column_name='organization'
+ ) then
+  update public.challenge_scenarios set organization=${t(caso.organization||'')}, updated_at=now()
    where key=${t(caso.key)};
  end if;
 end

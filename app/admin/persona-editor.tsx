@@ -1,7 +1,7 @@
 'use client';
 import{useState}from'react';
 import{useDialogo}from'@/app/ui/dialogo';import{ChevronDown,Copy,Trash2,UserPlus}from'lucide-react';
-import type{Character}from'@/lib/simulation/types';import{REALTIME_VOICES,VOICE_LABELS,resolveVoice}from'@/lib/call/voices';
+import{ASSENTO,type Character}from'@/lib/simulation/types';import{REALTIME_VOICES,VOICE_LABELS,resolveVoice}from'@/lib/call/voices';
 
 const TRAITS:Array<{key:keyof Character['traits'];label:string}>=[
  {key:'directness',label:'Direto'},{key:'diplomacy',label:'Diplomático'},{key:'detailOrientation',label:'Detalhista'},
@@ -95,6 +95,19 @@ export function PersonaEditor({characters,onChange,usingDefaults,callsEnabled}:{
       <label><span>Nome</span><input className="input" value={person.name} onChange={e=>patch(index,{name:e.target.value})}/></label>
       <label><span>Cargo</span><input className="input" value={person.role} onChange={e=>patch(index,{role:e.target.value})}/></label>
       <label><span>Senioridade</span><input className="input" value={person.seniority} onChange={e=>patch(index,{seniority:e.target.value})}/></label>
+      <label><span>Organização</span>
+       <input className="input" value={person.org||''} placeholder="a mesma do participante"
+        onChange={e=>patch(index,{org:e.target.value})}/>
+       <small className="campo-dica">Deixe vazio para quem é de dentro. Preencha para quem vem de fora — escritório, fornecedor, outra empresa.</small></label>
+      <label><span>Responde a</span>
+       <select className="input" value={person.reportsTo||''}
+        onChange={e=>patch(index,{reportsTo:e.target.value||undefined})}>
+        <option value="">— ninguém, é o topo —</option>
+        <option value={ASSENTO}>Você (o assento do participante)</option>
+        {characters.filter(c=>c.id!==person.id).map(c=>
+         <option key={c.id} value={c.id}>{c.name||c.id}{c.org?` · ${c.org}`:''}</option>)}
+       </select>
+       <small className="campo-dica">É isto que desenha o organograma. Sem ninguém escrever, ele chuta pela influência.</small></label>
       <label><span>Humor inicial</span><input className="input" value={person.state.mood} onChange={e=>patchState(index,{mood:e.target.value})}/></label>
      </div>
 

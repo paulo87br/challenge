@@ -2,7 +2,13 @@ export type Channel='mail'|'chat'|'feed'|'assistant'|'files'|'calendar'|'call'|'
 export type Temperature={ambiguity:number;timePressure:number;stakeholderConflict:number;informationNoise:number;technicalComplexity:number;incidentSeverity:number};
 export type CharacterTraits={directness:number;diplomacy:number;detailOrientation:number;politicalAwareness:number;riskAversion:number;technicalDepth:number;patience:number};
 export type CharacterState={mood:string;trustInParticipant:number;pressure:number;knownFacts:string[];memory:string[]};
-export type Character={id:string;name:string;role:string;seniority:string;influence:number;avatar?:string;voice?:string;voiceRegister?:'feminina'|'masculina'|'neutra';traits:CharacterTraits;goals:string[];concerns:string[];channels:Channel[];relationships:Record<string,string>;state:CharacterState};
+// 'reportsTo' é o id de quem esta pessoa responde, ou 'voce' para quem responde
+// ao assento do participante. 'org' é a organização dela: vazio significa a
+// mesma do participante, e é o que separa quem é de casa de quem é de fora --
+// no caso jurídico, a fronteira entre a empresa e o escritório contratado é o
+// próprio assunto da discussão.
+export const ASSENTO='voce';
+export type Character={id:string;name:string;role:string;seniority:string;influence:number;reportsTo?:string;org?:string;avatar?:string;voice?:string;voiceRegister?:'feminina'|'masculina'|'neutra';traits:CharacterTraits;goals:string[];concerns:string[];channels:Channel[];relationships:Record<string,string>;state:CharacterState};
 export type WorldEvent={id:string;channel:Channel;sender:string;characterId?:string;recipientCharacterId?:string;subject?:string;body:string;urgency:number;visible:boolean;reason?:string;at:number;delay_minutes?:number;mentionedCharacterIds?:string[]};
 export type TelemetryEvent={id:string;at:number;action:string;channel:Channel;objectId?:string;characterId?:string;text?:string;metadata?:Record<string,unknown>};
 export type WorldState={scenarioId:string;title:string;day:number;minute:number;

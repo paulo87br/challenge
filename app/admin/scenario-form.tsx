@@ -60,6 +60,10 @@ export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,f
      <label><span>Título</span><input className="input" value={form.title} onChange={e=>set({title:e.target.value})}/></label>
      <label><span>Domínio</span><input className="input" value={form.domain} onChange={e=>set({domain:e.target.value})}/></label>
      <label><span>Assento do participante</span><input className="input" value={form.seat_role} onChange={e=>set({seat_role:e.target.value})}/></label>
+     <label><span>Organização do participante</span>
+      <input className="input" value={form.organization||''} placeholder="o nome da empresa onde ele se senta"
+       onChange={e=>set({organization:e.target.value})}/>
+      <small className="campo-dica">Separa quem é de dentro de quem é de fora no organograma. Personagens com outra organização aparecem em bloco próprio, com sua própria cadeia de comando.</small></label>
      <label><span>Duração prevista (minutos)</span><input className="input" type="number" min={5} max={180} value={form.duration_minutes} onChange={e=>set({duration_minutes:Number(e.target.value)||30})}/></label>
     </div>
     <label className="field"><span>Missão que a pessoa lê</span>

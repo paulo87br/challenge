@@ -17,6 +17,8 @@ export type ScenarioConfig={
  // so signals from different turns land in the same bucket.
  competencies:Competency[];
  // A imprensa do mundo. Vazia significa que o cenário não tem notícia própria.
+ // A organização em que o participante se senta.
+ organization?:string;
  news:NewsItem[];
  // O que o mundo faz por conta própria. 'at' é minutos depois do início.
  events?:WorldEvent[];

@@ -64,7 +64,8 @@
      "desconto_oferecido"
     ],
     "memory": []
-   }
+   },
+   "org": "Albuquerque & Tavares"
   },
   {
    "id": "lucas",
@@ -109,7 +110,9 @@
      "historico_da_ferramenta"
     ],
     "memory": []
-   }
+   },
+   "org": "Albuquerque & Tavares",
+   "reportsTo": "renato"
   },
   {
    "id": "helena",
@@ -155,7 +158,8 @@
      "pressao_do_conselho"
     ],
     "memory": []
-   }
+   },
+   "org": "Nortes Logística"
   },
   {
    "id": "marta",
@@ -201,7 +205,9 @@
      "relacao_de_titulares"
     ],
     "memory": []
-   }
+   },
+   "org": "Nortes Logística",
+   "reportsTo": "voce"
   },
   {
    "id": "daniel",
@@ -245,7 +251,9 @@
      "sem_avaliacao_previa"
     ],
     "memory": []
-   }
+   },
+   "org": "Nortes Logística",
+   "reportsTo": "helena"
   }
  ],
  "knowledge": {
@@ -471,5 +479,6 @@
    "visible": true,
    "at": 34
   }
- ]
+ ],
+ "organization": "Nortes Logística"
 }
