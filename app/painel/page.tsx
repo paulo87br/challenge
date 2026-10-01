@@ -18,20 +18,21 @@ export default async function Painel(){
  // precisa valer: o outro é alguém tentando entrar. Varrer antes de ler evita
  // mostrar como aberta uma sessão que o próprio servidor já considera vencida.
  await expirarOciosos();
- const{data:sessions}=await supabase.from('challenge_sessions')
-  .select('id,user_id,scenario_key,status,started_at,updated_at,world_state,debrief')
-  .order('updated_at',{ascending:false}).limit(100);
- const{data:evidence}=await supabase.from('challenge_evidence').select('session_id,competency,polarity');
- const{data:telemetry}=await supabase.from('challenge_telemetry').select('session_id');
-
  // Emails live in auth.users, which RLS never exposes. Only an instructor
  // reaches this line, and only the addresses of people in these sessions.
  const admin=createSupabaseAdminClient();
+ // As quatro buscas não dependem umas das outras. Em série eram quatro idas e
+ // voltas ao Supabase somadas: a tela levava quase três segundos para voltar
+ // depois de encerrar uma sessão, e nesse tempo ela parecia não ter feito nada.
+ const[{data:sessions},{data:evidence},{data:telemetry},contas]=await Promise.all([
+  supabase.from('challenge_sessions')
+   .select('id,user_id,scenario_key,status,started_at,updated_at,world_state,debrief')
+   .order('updated_at',{ascending:false}).limit(100),
+  supabase.from('challenge_evidence').select('session_id,competency,polarity'),
+  supabase.from('challenge_telemetry').select('session_id'),
+  admin?admin.auth.admin.listUsers({perPage:200}):Promise.resolve({data:null})]);
  const emails=new Map<string,string>();
- if(admin){
-  const{data}=await admin.auth.admin.listUsers({perPage:200});
-  for(const person of data?.users||[])emails.set(person.id,person.email||person.id);
- }
+ for(const person of(contas as any)?.data?.users||[])emails.set(person.id,person.email||person.id);
  const countBy=(rows:any[]|null,id:string)=>(rows||[]).filter(row=>row.session_id===id).length;
 
  return <main className="painel painel-largo">

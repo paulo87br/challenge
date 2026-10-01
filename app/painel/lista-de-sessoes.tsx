@@ -1,5 +1,5 @@
 'use client';
-import{useState}from'react';import{useRouter}from'next/navigation';import Link from'next/link';
+import{useState,useTransition}from'react';import{useRouter}from'next/navigation';import Link from'next/link';
 import{Trash2,CheckCircle2,RotateCcw,X}from'lucide-react';
 import{estadoDaSessao}from'@/lib/mundo/estado-da-sessao';
 
@@ -18,6 +18,11 @@ export function ListaDeSessoes({linhas}:{linhas:LinhaDeSessao[]}){
  const[marcadas,setMarcadas]=useState<string[]>([]);
  const[confirmando,setConfirmando]=useState<string[]|null>(null);
  const[ocupado,setOcupado]=useState(false);
+ // A lista é um componente de servidor e redesenhá-la custa quase três
+ // segundos. Sem saber que a volta está a caminho, a tela ficava idêntica
+ // depois do clique e a pessoa clicava de novo. A transição é o que torna
+ // essa espera visível.
+ const[recarregando,iniciarRecarga]=useTransition();
  const[recado,setRecado]=useState<{tom:'ok'|'erro';texto:string}|null>(null);
 
  const visiveis=linhas.map(l=>l.id);
@@ -50,17 +55,21 @@ export function ListaDeSessoes({linhas}:{linhas:LinhaDeSessao[]}){
      'Se a migração 024 ainda não foi aplicada, é isso — sem ela o instrutor não tem permissão de alterar ou excluir sessão de outra pessoa.'});
    }else{
     const naoSeAplicava=pedidas-elegiveis;
-    const motivo=acao==='encerrar'?'já não estavam correndo'
-     :acao==='reabrir'?'têm debrief entregue ou já estão correndo':'não se aplicavam';
-    setRecado({tom:'ok',texto:naoSeAplicava?`${feito}. ${naoSeAplicava} ficaram de fora: ${motivo}.`:feito});
+    const um=naoSeAplicava===1;
+    const motivo=acao==='encerrar'?(um?'já não estava correndo':'já não estavam correndo')
+     :acao==='reabrir'?(um?'tem debrief entregue ou já está correndo':'têm debrief entregue ou já estão correndo')
+     :(um?'não se aplicava':'não se aplicavam');
+    const ficaram=naoSeAplicava===1?'1 ficou de fora':`${naoSeAplicava} ficaram de fora`;
+    setRecado({tom:'ok',texto:naoSeAplicava?`${feito}. ${ficaram}: ${motivo}.`:feito});
    }
    setMarcadas(atual=>atual.filter(id=>!ids.includes(id)));
    setConfirmando(null);
-   router.refresh();
+   iniciarRecarga(()=>router.refresh());
   }catch(erro){setRecado({tom:'erro',texto:erro instanceof Error?erro.message:'Falha de rede'})}
   finally{setOcupado(false)}
  }
 
+ const travado=ocupado||recarregando;
  const podeEncerrar=linhas.filter(l=>selecionadas.includes(l.id)&&correndo(l)).length;
  const podeReabrir=linhas.filter(l=>selecionadas.includes(l.id)&&reabrivel(l)).length;
 
@@ -71,13 +80,13 @@ export function ListaDeSessoes({linhas}:{linhas:LinhaDeSessao[]}){
    <div><b>Excluir {confirmando.length===1?'esta sessão':`${confirmando.length} sessões`}?</b>
     <p className="muted">Vai junto tudo que ela registrou: ações, evidências, turnos e chamadas. Não há como desfazer.</p></div>
    <div className="barra-botoes">
-    <button className="btn" onClick={()=>setConfirmando(null)} disabled={ocupado}>Cancelar</button>
-    <button className="btn perigo" onClick={()=>aplicar('excluir',confirmando)} disabled={ocupado}>
-     <Trash2 size={15}/>{ocupado?'Excluindo…':'Excluir mesmo'}</button>
+    <button className="btn" onClick={()=>setConfirmando(null)} disabled={travado}>Cancelar</button>
+    <button className="btn perigo" onClick={()=>aplicar('excluir',confirmando)} disabled={travado}>
+     <Trash2 size={15}/>{travado?'Excluindo…':'Excluir mesmo'}</button>
    </div></div>}
 
   {recado&&<div className={'panel barra-recado '+recado.tom}>
-   <span>{recado.texto}</span>
+   <span>{recado.texto}{recarregando&&' · atualizando a lista…'}</span>
    <button className="btn" onClick={()=>setRecado(null)} aria-label="Dispensar aviso"><X size={15}/></button></div>}
 
   <div className="barra-selecao">
@@ -86,11 +95,11 @@ export function ListaDeSessoes({linhas}:{linhas:LinhaDeSessao[]}){
      onChange={()=>setMarcadas(todas?[]:visiveis)} aria-label="Selecionar todas as sessões"/>
     {selecionadas.length?`${selecionadas.length} selecionada${selecionadas.length===1?'':'s'}`:'Selecionar todas'}</label>
    {selecionadas.length>0&&<div className="barra-botoes">
-    <button className="btn" disabled={ocupado||!podeEncerrar} onClick={()=>aplicar('encerrar',selecionadas)}
+    <button className="btn" disabled={travado||!podeEncerrar} onClick={()=>aplicar('encerrar',selecionadas)}
      title={podeEncerrar?'':'Nenhuma das selecionadas está correndo'}><CheckCircle2 size={15}/>Encerrar{podeEncerrar?` (${podeEncerrar})`:''}</button>
-    <button className="btn" disabled={ocupado||!podeReabrir} onClick={()=>aplicar('reabrir',selecionadas)}
+    <button className="btn" disabled={travado||!podeReabrir} onClick={()=>aplicar('reabrir',selecionadas)}
      title={podeReabrir?'':'Nenhuma das selecionadas pode voltar a correr'}><RotateCcw size={15}/>Reabrir{podeReabrir?` (${podeReabrir})`:''}</button>
-    <button className="btn perigo" disabled={ocupado} onClick={()=>setConfirmando(selecionadas)}><Trash2 size={15}/>Excluir</button>
+    <button className="btn perigo" disabled={travado} onClick={()=>setConfirmando(selecionadas)}><Trash2 size={15}/>Excluir</button>
    </div>}
   </div>
 
@@ -112,11 +121,11 @@ export function ListaDeSessoes({linhas}:{linhas:LinhaDeSessao[]}){
       {linha.temDebrief&&<span className="tag">debrief</span>}
      </div>
      <div className="painel-acoes">
-      {correndo(linha)&&<button className="btn pequeno" disabled={ocupado}
+      {correndo(linha)&&<button className="btn pequeno" disabled={travado}
        onClick={()=>aplicar('encerrar',[linha.id])}><CheckCircle2 size={14}/>Encerrar</button>}
-      {reabrivel(linha)&&<button className="btn pequeno" disabled={ocupado}
+      {reabrivel(linha)&&<button className="btn pequeno" disabled={travado}
        onClick={()=>aplicar('reabrir',[linha.id])}><RotateCcw size={14}/>Reabrir</button>}
-      <button className="btn pequeno perigo" disabled={ocupado} aria-label={`Excluir a sessão de ${linha.pessoa}`}
+      <button className="btn pequeno perigo" disabled={travado} aria-label={`Excluir a sessão de ${linha.pessoa}`}
        onClick={()=>setConfirmando([linha.id])}><Trash2 size={14}/></button>
      </div>
     </div>;
