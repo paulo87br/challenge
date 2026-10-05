@@ -1,6 +1,21 @@
 import{NextResponse}from'next/server';import{createSupabaseServerClient}from'@/lib/supabase/server';
 
 const CAMPOS='key,title,domain,seat_role,mission,world_description,temperature,duration_minutes,provider,model,characters,artifacts,knowledge,competencies,news,calls_enabled,call_minutes_per_call,call_minutes_per_session,call_voice';
+// Os acontecimentos agendados (019) e a organização (022) nasceram depois desta
+// lista e ficaram de fora dela. A cópia saía sem nada do que faz o mundo
+// procurar a pessoa: nem a ligação da CEO no minuto 18, nem o estagiário no 26.
+// Um mundo mudo, idêntico por fora. join_code fica de fora de propósito: a
+// cópia precisa do código dela, e a coluna já tem default que o gera.
+const CAMPOS_NOVOS=`${CAMPOS},events,organization`;
+
+// O ambiente pode estar sem as migrações mais novas. Pedir e cair para a lista
+// antiga é melhor que falhar -- mas o que se copia é dito, não suposto.
+async function origem(supabase:any,sourceKey:string){
+ const completo=await supabase.from('challenge_scenarios').select(CAMPOS_NOVOS).eq('key',sourceKey).maybeSingle();
+ if(!completo.error)return{linha:completo.data,integral:true};
+ const basico=await supabase.from('challenge_scenarios').select(CAMPOS).eq('key',sourceKey).maybeSingle();
+ return{linha:basico.data,integral:false};
+}
 
 async function instrutor(){
  const supabase=createSupabaseServerClient();
@@ -45,7 +60,7 @@ export async function POST(req:Request){
  if(erro)return erro;
  try{
   const{action,sourceKey,title}=await req.json();
-  const{data:source}=await supabase.from('challenge_scenarios').select(CAMPOS).eq('key',sourceKey).maybeSingle();
+  const{linha:source,integral}=await origem(supabase,sourceKey);
   // Sem exceção por ação: antes 'activate' passava por aqui com a chave
   // inexistente e devolvia 200 sem ter feito nada, que é o tipo de silêncio que
   // este projeto já pagou caro três vezes.
@@ -58,7 +73,7 @@ export async function POST(req:Request){
    const{error}=await supabase.from('challenge_scenarios')
     .insert({...resto,key:nova,title:nome,is_template:true,active:false,created_from:sourceKey,updated_by:user.id});
    if(error)throw new Error(error.message);
-   return NextResponse.json({saved:true,key:nova,title:nome});
+   return NextResponse.json({saved:true,key:nova,title:nome,integral});
   }
 
   if(action==='create_from'){
@@ -68,7 +83,7 @@ export async function POST(req:Request){
    const{error}=await supabase.from('challenge_scenarios')
     .insert({...resto,key:nova,title:nome,is_template:false,active:false,created_from:sourceKey,updated_by:user.id});
    if(error)throw new Error(error.message);
-   return NextResponse.json({created:true,key:nova,title:nome});
+   return NextResponse.json({created:true,key:nova,title:nome,integral});
   }
 
   // Desde a 016 mais de um mundo pode estar no ar: colocar um não tira o outro.
