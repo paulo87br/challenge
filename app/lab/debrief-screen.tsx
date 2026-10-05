@@ -25,7 +25,7 @@ export function DebriefScreen({debrief,evidenceCount,turnCount,busy,error,onGene
    <button className="btn" onClick={onTogglePause}>{paused?<><Play size={16}/>Retomar</>:<><Pause size={16}/>Pausar</>}</button>
   </section>
 
-  <button className="btn primary" disabled={busy} onClick={onGenerate}>{busy?'Escrevendo seu debrief…':'Encerrar e ver meu debrief'}</button>
+  <button className="btn primary" disabled={busy} onClick={()=>onGenerate()}>{busy?'Escrevendo seu debrief…':'Encerrar e ver meu debrief'}</button>
   <button className="btn restart" onClick={onRestart}>Recomeçar do zero</button>
  </section>;
 

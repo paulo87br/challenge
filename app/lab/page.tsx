@@ -232,12 +232,17 @@ function findAttachment(body:string){
  });
 }
 function openFile(id:string){setSelectedFile(id);setSeenFiles(prev=>({...prev,[id]:true}));setTab('files')}
-async function generateDebrief(porTempo=false){
+// porTempo é lido estritamente: um onClick entrega o evento de clique como
+// primeiro argumento, e o evento carrega o próprio botão, que aponta de volta
+// para si por dentro do React. JSON.stringify não serializa isso, e o
+// participante via "Converting circular structure to JSON" em vez da sua
+// leitura -- no único momento em que ele não pode tentar de novo depois.
+async function generateDebrief(porTempo:unknown=false){
  if(busy)return;setBusy(true);setDebriefError('');
  addClientLog('debrief','info','Gerando debrief do participante',{evidence:evidence.length,telemetry:world.telemetry.length});
  try{
   const r=await fetch('/api/simulation/debrief',{method:'POST',headers:{'content-type':'application/json'},
-   body:JSON.stringify({seat:world.seat,evidence,telemetry:world.telemetry,engine,sessionId,compulsorio:porTempo,world:{title:world.title,elapsedMinutes:world.minute-initialWorld.minute}})});
+   body:JSON.stringify({seat:world.seat,evidence,telemetry:world.telemetry,engine,sessionId,compulsorio:porTempo===true,world:{title:world.title,elapsedMinutes:world.minute-initialWorld.minute}})});
   const data=await r.json();
   if(!r.ok)throw new Error(data.detail||data.error||`HTTP ${r.status}`);
   const finished={...data,generatedAt:Date.now()};setDebrief(finished);syncSession({debrief:finished,status:'completed'});
