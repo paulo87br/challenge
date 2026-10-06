@@ -8,15 +8,31 @@ export async function POST(req:Request){
   // came back from a turn, so a signal produced by a voice call -- written
   // server-side -- was invisible to it, and the participant was told they had
   // none.
+  // Lido com a chave de serviço, não com a sessão de quem pede: a política não
+  // dá leitura de evidência ao participante -- é o que o impede de se avaliar
+  // -- então o caminho do banco nunca valia para ele e o debrief acabava sendo
+  // escrito sobre a cópia crua do navegador. Agora que a evidência passa por
+  // deduplicação, lastro e segunda passada antes de ser gravada, as duas
+  // leituras diziam coisas diferentes sobre a mesma sessão.
+  //
+  // A dona da sessão é conferida antes: a chave de serviço ignora RLS, e quem
+  // pede só pode receber a evidência da própria corrida.
   let signals=Array.isArray(evidence)?evidence:[];
   if(sessionId){
    const supabase=createSupabaseServerClient();
    const{data:{user}}=supabase?await supabase.auth.getUser():{data:{user:null}};
-   if(supabase&&user){
-    const{data:stored}=await supabase.from('challenge_evidence')
-     .select('competency,behavior,evidence,strength,confidence,polarity,corroboration_required')
-     .eq('session_id',sessionId).order('created_at');
-    if(stored?.length)signals=stored as any[];
+   const admin=createSupabaseAdminClient();
+   if(user&&admin){
+    const{data:dona}=await admin.from('challenge_sessions').select('user_id').eq('id',sessionId).maybeSingle();
+    if(dona?.user_id===user.id){
+     const{data:stored}=await admin.from('challenge_evidence')
+      .select('competency,behavior,evidence,strength,confidence,polarity,corroboration_required,support')
+      .eq('session_id',sessionId).order('created_at');
+     // Sinal sem lastro não entra na leitura da pessoa: ele existe, aparece no
+     // Studio como medida do motor, mas não sustenta uma frase sobre ela.
+     const uteis=(stored||[]).filter((x:any)=>x.support!=='sem_apoio');
+     if(uteis.length)signals=uteis.map(({support,...resto}:any)=>resto);
+    }
    }
   }
   if(signals.length===0){
