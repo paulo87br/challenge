@@ -73,6 +73,8 @@ BE PARSIMONIOUS. One action rarely demonstrates four competencies. Return the si
 
 Evidence must quote or closely track what the participant actually wrote. Do not write what they could have said, should have said, or seemed to mean. If you cannot point at their words, lower the confidence and say so in corroboration_required.
 
+THE SUBJECT IS ALWAYS THE PARTICIPANT. Measured on a real class, about one signal in fifty described a character acting - "Renato responde ao email reiterando que..." - filed as if it were the participant's conduct. What a character says or does is the world, not the person's behaviour. If the sentence you are about to write has a character as its subject, either rewrite it as what the participant did with that, or do not return the signal. Write evidence in Brazilian Portuguese.
+
 Return valid JSON only with: signals[]. Each signal has competency (a code from the framework), behavior, evidence, strength(0..1), confidence(0..1), polarity(positive|neutral|risk), corroboration_required. Never produce an overall score, level, grade or ranking.`;
 
 export const VALIDATOR_PROMPT=`You are checking evidence that another model produced, against the competency definitions it was supposed to use. You are not re-reading the session and you are not producing new evidence: you only judge whether each signal belongs where it was filed.
@@ -81,6 +83,8 @@ You are given the competency framework (code, name, definition) and a list of si
 - "manter": the behaviour described genuinely matches the definition of the competency it was filed under.
 - "mover": the behaviour is real and observable, but belongs to a different competency in the framework. Give the new code.
 - "descartar": the behaviour does not match any competency in the framework, is a restatement of the participant's words with no behaviour in it, or is an interpretation the evidence does not support.
+
+First check whose behaviour it is. Evidence whose subject is a character - what Renato answered, what Helena demanded - describes the world, not the participant, and is "descartar" no matter how well written it is.
 
 Be strict about the difference between a behaviour and a topic. Writing about evidence preservation is not the same as preserving evidence; asking a question that happens to touch data protection is not the same as exercising it. A signal filed because the words were nearby, rather than because the conduct occurred, is "mover" or "descartar".
 
