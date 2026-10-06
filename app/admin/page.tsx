@@ -1,7 +1,7 @@
 import{redirect}from'next/navigation';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{defaultScenario,type ScenarioConfig}from'@/lib/simulation/scenario';import{initialWorld}from'@/lib/simulation/runtime';
-import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{expirarOciosos}from'@/lib/supabase/sessions';import{FAILURE_LABELS}from'@/lib/ai/errors';import{estadoDaVariavel,estadoDasChaves}from'@/lib/ai/chaves';
+import{AdminConsole,type Participant,type TurnRow,type Incident}from'./admin-console';import{nomeDoUsuario}from'@/lib/mundo/usuario';import{expirarOciosos}from'@/lib/supabase/sessions';import{FAILURE_LABELS}from'@/lib/ai/errors';import{estadoDaVariavel,estadoDasChaves}from'@/lib/ai/chaves';import{todasAsLinhas}from'@/lib/supabase/paginar';
 
 export const dynamic='force-dynamic';
 export const metadata={title:'Studio · Challenge'};
@@ -47,18 +47,22 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  const faltaMigracao=Boolean(comCodigo.error);
  const scenario:ScenarioConfig=scenarioRow?{...defaultScenario,...scenarioRow,temperature:scenarioRow.temperature||{}}:defaultScenario;
 
- const[{data:sessions},{data:evidence},{data:telemetry},{data:turnRows}]=await Promise.all([
+ const[{data:sessions},evRes,tlRes,{data:turnRows}]=await Promise.all([
   supabase.from('challenge_sessions').select('id,user_id,scenario_key,status,started_at,updated_at,debrief').order('updated_at',{ascending:false}),
-  supabase.from('challenge_evidence').select('session_id,polarity'),
-  supabase.from('challenge_telemetry').select('session_id'),
+  todasAsLinhas<any>(()=>supabase.from('challenge_evidence').select('session_id,polarity').order('id')),
+  todasAsLinhas<any>(()=>supabase.from('challenge_telemetry').select('session_id').order('id')),
   supabase.from('challenge_turns').select('*').order('created_at',{ascending:false}).limit(40)
  ]);
  // Consumo: tudo, não os 40 turnos que a aba do motor mostra. São poucas linhas
  // por sessão e é a única forma de somar a conta de uma turma inteira.
- const[{data:todosTurnos},{data:todasChamadas}]=await Promise.all([
-  supabase.from('challenge_turns').select('session_id,provider,model,input_tokens,output_tokens'),
+ const[turnosRes,{data:todasChamadas}]=await Promise.all([
+  todasAsLinhas<any>(()=>supabase.from('challenge_turns').select('session_id,provider,model,input_tokens,output_tokens').order('id')),
   supabase.from('challenge_calls').select('session_id,seconds')
  ]);
+ const evidence=evRes.linhas,telemetry=tlRes.linhas,todosTurnos=turnosRes.linhas;
+ // Uma leitura pela metade vira número menor sem avisar: a tela precisa poder
+ // dizer que o que mostra está por baixo.
+ const leituraParcial=!evRes.completo||!tlRes.completo||!turnosRes.completo;
  const mundoDaSessao=new Map((sessions||[]).map(row=>[row.id,row.scenario_key||'—']));
  const consumo:Record<string,{modelos:Record<string,{model:string;provider:string;turnos:number;entrada:number;saida:number}>;voz:{chamadas:number;segundos:number}}>={};
  const balde=(chave:string)=>consumo[chave]||=({modelos:{},voz:{chamadas:0,segundos:0}});

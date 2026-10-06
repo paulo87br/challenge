@@ -1,6 +1,6 @@
 import{UsuarioSessao}from'@/app/ui/usuario-sessao';import{NavInstrutor}from'@/app/ui/nav-instrutor';import{nomeDoUsuario}from'@/lib/mundo/usuario';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
-import{expirarOciosos}from'@/lib/supabase/sessions';import{quando}from'@/lib/mundo/quando';import{ListaDeSessoes}from'./lista-de-sessoes';
+import{expirarOciosos}from'@/lib/supabase/sessions';import{quando}from'@/lib/mundo/quando';import{todasAsLinhas}from'@/lib/supabase/paginar';import{ListaDeSessoes}from'./lista-de-sessoes';
 import{NoAccess}from'./no-access';
 
 export const dynamic='force-dynamic';
@@ -24,13 +24,17 @@ export default async function Painel(){
  // As quatro buscas não dependem umas das outras. Em série eram quatro idas e
  // voltas ao Supabase somadas: a tela levava quase três segundos para voltar
  // depois de encerrar uma sessão, e nesse tempo ela parecia não ter feito nada.
- const[{data:sessions},{data:evidence},{data:telemetry},contas]=await Promise.all([
+ // Evidência e telemetria vão paginadas: o PostgREST corta em mil linhas sem
+ // avisar, e uma única turma já passou disso -- as contagens desta tela
+ // apareciam menores do que são, sem erro em lugar nenhum.
+ const[{data:sessions},ev,tl,contas]=await Promise.all([
   supabase.from('challenge_sessions')
    .select('id,user_id,scenario_key,status,started_at,updated_at,world_state,debrief')
    .order('updated_at',{ascending:false}).limit(100),
-  supabase.from('challenge_evidence').select('session_id,competency,polarity'),
-  supabase.from('challenge_telemetry').select('session_id'),
+  todasAsLinhas<any>(()=>supabase.from('challenge_evidence').select('session_id,competency,polarity').order('id')),
+  todasAsLinhas<any>(()=>supabase.from('challenge_telemetry').select('session_id').order('id')),
   admin?admin.auth.admin.listUsers({perPage:200}):Promise.resolve({data:null})]);
+ const evidence=ev.linhas,telemetry=tl.linhas,parcial=!ev.completo||!tl.completo;
  const emails=new Map<string,string>();
  for(const person of(contas as any)?.data?.users||[])emails.set(person.id,person.email||person.id);
  const countBy=(rows:any[]|null,id:string)=>(rows||[]).filter(row=>row.session_id===id).length;
@@ -43,6 +47,7 @@ export default async function Painel(){
     <span className="tag">{sessions?.length||0} sessões</span>
     <UsuarioSessao nome={nomeDoUsuario(user)} email={String(user.email||'')} compacto/></div>
   </header>
+  {parcial&&<div className="panel barra-recado erro"><span>A leitura do banco não veio inteira: as contagens abaixo estão por baixo. Recarregue a página.</span></div>}
   {!sessions?.length&&<div className="panel"><p className="muted">Nenhuma sessão registrada ainda.</p></div>}
   {!!sessions?.length&&<ListaDeSessoes linhas={(sessions||[]).map(session=>{
    const world=session.world_state as any;
