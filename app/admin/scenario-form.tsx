@@ -2,7 +2,7 @@
 import{useState}from'react';import{Save}from'lucide-react';
 import{TEMPERATURE_FIELDS,type ScenarioConfig}from'@/lib/simulation/scenario';import{EnginePicker}from'./engine-picker';import{PersonaEditor}from'./persona-editor';import{ArtifactEditor}from'./artifact-editor';import{CompetencyEditor}from'./competency-editor';import{NewsEditor}from'./news-editor';import{EventEditor}from'./event-editor';import{ScenarioSwitcher,type ScenarioRow}from'./scenario-switcher';import type{ProviderId}from'@/lib/ai/providers';import type{Character}from'@/lib/simulation/types';
 
-export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,faltaMigracao,chaves,chaveDeVoz}:{initial:ScenarioConfig;defaultCast:Character[];voiceKeyConfigured:boolean;scenarios:ScenarioRow[];faltaMigracao?:boolean;chaves?:Record<string,{estado:string;tamanho:number}>;chaveDeVoz?:{estado:string;tamanho:number}}){
+export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,faltaMigracao,turmas,faltaTurmas,chaves,chaveDeVoz}:{initial:ScenarioConfig;defaultCast:Character[];voiceKeyConfigured:boolean;scenarios:ScenarioRow[];faltaMigracao?:boolean;chaves?:Record<string,{estado:string;tamanho:number}>;chaveDeVoz?:{estado:string;tamanho:number};turmas?:{id:string;nome:string}[];faltaTurmas?:boolean}){
  const[form,setForm]=useState<ScenarioConfig>(initial);
  // An empty cast means the scenario still rides on the compiled default; show
  // that cast so editing it is a choice rather than starting from nothing.
@@ -52,7 +52,7 @@ export function ScenarioForm({initial,defaultCast,voiceKeyConfigured,scenarios,f
   {state==='saved'&&<p className="muted">Vale para as próximas sessões; as que já começaram mantêm o mundo em que foram jogadas.</p>}
 
   {secaoAtiva==='mundo'&&<>
-   <ScenarioSwitcher scenarios={scenarios} currentKey={form.key} faltaMigracao={faltaMigracao}/>
+   <ScenarioSwitcher scenarios={scenarios} currentKey={form.key} faltaMigracao={faltaMigracao} turmas={turmas} faltaTurmas={faltaTurmas}/>
    <section className="panel">
     <div className="eyebrow">IDENTIDADE</div>
     <h2>O que é este Challenge</h2>

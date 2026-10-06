@@ -636,3 +636,8 @@ body.modal-aberto{overflow:hidden}
 .login-outro:hover{color:#211a38}
 .login-actions.login-urgente .btn{box-shadow:4px 4px 0 #12b89a}
 .login-email small{display:block;margin-top:8px;font-size:12px;line-height:1.5}
+.mundo-turma{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap}
+.mundo-turma .eyebrow{margin-right:6px}
+.mundo-turma select,.turma-nome{padding:6px 9px;font-size:12px;border-radius:10px;max-width:190px}
+.seletor-mundo{display:flex;flex-direction:column;gap:5px;margin-top:12px;max-width:430px}
+.seletor-mundo select{padding:9px 11px}

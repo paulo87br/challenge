@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{createSupabaseServerClient}from'@/lib/supabase/server';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider}from'@/lib/ai/providers';import{DEBRIEF_PROMPT}from'@/lib/ai/prompts';
+import{NextResponse}from'next/server';import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';import{levantarOmissoes}from'@/lib/simulation/omissao';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider}from'@/lib/ai/providers';import{DEBRIEF_PROMPT}from'@/lib/ai/prompts';
 
 export async function POST(req:Request){
  try{
@@ -34,11 +34,35 @@ export async function POST(req:Request){
     semMaterial:true};
    return NextResponse.json(vazio);
   }
+  // O que o mundo pôs diante da pessoa e ela não respondeu. Lido do banco, não
+  // do corpo da requisição: o estado do mundo e a telemetria gravada são o que
+  // de fato aconteceu, e o navegador não precisa carregar isso de volta.
+  let semResposta:any[]=[];
+  let estimulosVistos=0;
+  if(sessionId){
+   const admin=createSupabaseAdminClient();
+   if(admin){
+    const[{data:linha},{data:acoes}]=await Promise.all([
+     admin.from('challenge_sessions').select('world_state').eq('id',sessionId).maybeSingle(),
+     admin.from('challenge_telemetry').select('character_id,channel,simulated_minute')
+      .eq('session_id',sessionId).order('created_at')]);
+    const mundo=(linha?.world_state||{})as any;
+    const r=levantarOmissoes(mundo.events||[],
+     (acoes||[]).map((a:any)=>({characterId:a.character_id,channel:a.channel,at:a.simulated_minute||0})),
+     Number(mundo.minute)||0);
+    estimulosVistos=r.estimulos.length;
+    semResposta=r.semResposta.slice(0,12).map(e=>({
+     de:e.de,canal:e.canal,assunto:e.assunto,trecho:e.trecho,minuto:e.minuto,urgencia:e.urgencia}));
+   }
+  }
+
   const input=JSON.stringify({
    output_contract:'Respond with valid JSON only. The response must be a JSON object.',
    seat,scenario:world?.title,elapsed_minutes:world?.elapsedMinutes,
    observable_actions:(telemetry||[]).map((entry:any)=>({action:entry.action,channel:entry.channel,character:entry.characterId,text:entry.text})),
-   evidence:signals
+   evidence:signals,
+   stimuli_seen:estimulosVistos,
+   stimuli_without_answer:semResposta
   });
   const provider=isProvider(engine?.provider)?engine.provider:DEFAULT_PROVIDER;
   const r=await complete({provider,model:String(engine?.model||'')||defaultModel(provider),instructions:DEBRIEF_PROMPT,input});

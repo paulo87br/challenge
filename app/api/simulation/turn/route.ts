@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider,type ProviderId}from'@/lib/ai/providers';import{artifactFor,fold,scenarioArtifacts,type ScenarioArtifact}from'@/lib/simulation/scenario-world';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows,sessaoAceitaTurno}from'@/lib/supabase/sessions';import{claimTurn,settleTurn,recordIncident,ESTIMATED_TOKENS_PER_TURN}from'@/lib/queue/rate';import{classify,FAILURE_LABELS}from'@/lib/ai/errors';import{respostaDoPersonagem,mencoesDoTurno,cascata}from'@/lib/simulation/resposta';
+import{NextResponse}from'next/server';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider,type ProviderId}from'@/lib/ai/providers';import{artifactFor,fold,scenarioArtifacts,type ScenarioArtifact}from'@/lib/simulation/scenario-world';import{DIRECTOR_PROMPT,OBSERVER_PROMPT,VALIDATOR_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows,sessaoAceitaTurno}from'@/lib/supabase/sessions';import{claimTurn,settleTurn,recordIncident,ESTIMATED_TOKENS_PER_TURN}from'@/lib/queue/rate';import{classify,FAILURE_LABELS}from'@/lib/ai/errors';import{respostaDoPersonagem,mencoesDoTurno,cascata}from'@/lib/simulation/resposta';import{levantarOmissoes}from'@/lib/simulation/omissao';
 
 type Usage={inputTokens:number;outputTokens:number;calls:number};
 
@@ -132,6 +132,14 @@ export async function POST(req:Request){
    // nada tivesse sido dito.
    unknownMentions:Array.isArray(unknownMentions)?unknownMentions.slice(0,5):[],
    unknownMentionsDirective:'The participant named someone who is not in the cast. Never silently ignore it and never invent that this person is a colleague with facts of their own. Have the acting character react truthfully to the name: say they do not know anyone by it, ask who the participant means, or — only if the scenario clearly supports it — treat them as someone peripheral who is not part of this case. The person named never becomes a new character and never speaks.',
+   // O que o mundo já pôs diante da pessoa e não teve resposta. Sem isto, o
+   // Director não tinha como saber que a Helena escreveu duas vezes e ficou
+   // falando sozinha -- e personagem que não nota o próprio silêncio não cobra.
+   unanswered_stimuli:levantarOmissoes(world?.events||[],
+    (world?.telemetry||[]).map((t:any)=>({characterId:t.characterId,channel:t.channel,at:Number(t.at)||0})),
+    Number(world?.minute)||0).semResposta.slice(0,6).map(e=>({
+     de:e.de,characterId:e.characterId,canal:e.canal,assunto:e.assunto,
+     minutos_em_silencio:(Number(world?.minute)||0)-e.minuto,urgencia:e.urgencia})),
    publishedNews,
    newsDirective:'publishedNews is press the participant has already read. It is the repercussion of THIS case, not a new incident: never treat a headline as a separate event, never invent facts from it, and never let a character learn from it something their knowledge perimeter does not allow.',
    latestParticipantAction:action,
@@ -341,6 +349,39 @@ export async function POST(req:Request){
    if(dropped.length)log('observer','warn','Signals outside the competency framework were dropped',{dropped,kept:kept.length});
    observer={...observer,signals:kept};
   }
+  // Segunda passada: o código existir na régua não garante que a conduta caiba
+  // na definição. "Preservação de evidência" era atribuída a quem apenas falava
+  // de evidência. Um erro de arquivamento não aparece em nenhuma contagem --
+  // ele aparece como a pessoa tendo uma competência que não exerceu.
+  if(observer?.signals?.length&&competencies.length){
+   try{
+    const parecer=await jsonResponse(VALIDATOR_PROMPT,{
+     framework:competencies.map(c=>({code:c.code,name:c.name,definition:c.definition})),
+     signals:observer.signals.map((x:any,i:number)=>({i,competency:x.competency,behavior:x.behavior,evidence:x.evidence}))},
+     engine,usage);
+    const porIndice=new Map<number,any>((parecer?.veredictos||[]).map((v:any)=>[Number(v.i),v]));
+    const codigos=new Set(competencies.map(c=>c.code));
+    const sobreviventes:any[]=[];const descartados:string[]=[];const movidos:string[]=[];
+    observer.signals.forEach((sinal:any,i:number)=>{
+     const v=porIndice.get(i);
+     // Sem veredicto, o sinal fica: a ausência de opinião não é condenação.
+     if(!v||v.acao==='manter'){sobreviventes.push(sinal);return}
+     if(v.acao==='mover'&&codigos.has(String(v.competency))){
+      movidos.push(`${sinal.competency}→${v.competency}`);
+      sobreviventes.push({...sinal,competency:String(v.competency)});return;
+     }
+     if(v.acao==='descartar'){descartados.push(`${sinal.competency}: ${v.motivo||''}`.trim());return}
+     sobreviventes.push(sinal);
+    });
+    log('validator','ok','Segunda passada sobre a evidência',
+     {entraram:observer.signals.length,ficaram:sobreviventes.length,movidos,descartados});
+    observer={...observer,signals:sobreviventes};
+   }catch(erro){
+    // Falhar a validação não pode custar a evidência do turno: sem veredicto,
+    // vale o que o Observer disse.
+    log('validator','warn','Segunda passada falhou; a evidência segue como veio',{erro:String(erro)});
+   }
+  }
   log('observer',observer?'ok':'warn',observer?'Observer returned':'Observer failed; turn continues without evidence',{signals:observer?.signals?.length||0,uncovered:observer?.uncovered_areas?.length||0,competencies:[...new Set((observer?.signals||[]).map(signal=>signal.competency))],error:observerError||undefined});
   const durationMs=Date.now()-startedAt;
   const diagnostic=buildDiagnostic(director,action,world.characters||[],durationMs,observer);
@@ -353,7 +394,7 @@ export async function POST(req:Request){
   const stored=await recordTurn({requestId,durationMs,model:engine.model,action,diagnostic,logs,events:(director.events||[]) as any[],observer});
   // Evidence goes up with the service role: the policies give the participant
   // no insert on it, so the assessment record cannot be forged from the browser.
-  const remote=sessionId?await recordTurnRows(String(sessionId),action,observer?.signals||[],world?.minute,{requestId,durationMs,model:engine.model,provider:engine.provider,usage,diagnostic,logs}):'unavailable';
+  const remote=sessionId?await recordTurnRows(String(sessionId),action,observer?.signals||[],world?.minute,{requestId,durationMs,model:engine.model,provider:engine.provider,usage,diagnostic,logs},competencies):'unavailable';
   log('history',stored==='saved'?'ok':'warn',`Turn history ${stored}`,{requestId,store:'sqlite',supabase:remote});
   return NextResponse.json({director,observer,engine:'llm',provider:engine.provider,model:engine.model,usage,requestId,logs,diagnostic});
  }catch(error){

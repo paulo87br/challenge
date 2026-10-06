@@ -22,7 +22,7 @@ export type TurnRow={id:string;requestId:string;createdAt:string;severity:string
 const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug},{id:'incidentes',label:'Incidentes',Icon:TriangleAlert}];
 const when=quandoCurto;
 
-export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao,usuario,chaves,chaveDeVoz,consumo,falhasDaTela,faltaTabelaDeFalhas,saudeDosTurnos}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean;usuario?:{nome:string;email:string};chaves?:Record<string,{estado:string;tamanho:number}>;chaveDeVoz?:{estado:string;tamanho:number};consumo?:Record<string,{modelos:Record<string,UsoPorModelo>;voz:UsoDeVoz}>;falhasDaTela?:{id:string;session_id:string|null;stage:string;message:string;created_at:string;user_agent:string|null}[];faltaTabelaDeFalhas?:boolean;saudeDosTurnos?:Record<string,{total:number;erro:number;atencao:number;ok:number;ultimas:{headline:string;n:number}[]}>}){
+export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao,usuario,chaves,chaveDeVoz,consumo,falhasDaTela,faltaTabelaDeFalhas,saudeDosTurnos,turmas,faltaTurmas}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean;usuario?:{nome:string;email:string};chaves?:Record<string,{estado:string;tamanho:number}>;chaveDeVoz?:{estado:string;tamanho:number};consumo?:Record<string,{modelos:Record<string,UsoPorModelo>;voz:UsoDeVoz}>;falhasDaTela?:{id:string;session_id:string|null;stage:string;message:string;created_at:string;user_agent:string|null}[];faltaTabelaDeFalhas?:boolean;saudeDosTurnos?:Record<string,{total:number;erro:number;atencao:number;ok:number;ultimas:{headline:string;n:number}[]}>;turmas?:{id:string;nome:string}[];faltaTurmas?:boolean}){
  const[tab,setTab]=useState('cenario');
  const[resolving,setResolving]=useState('');
  async function resolver(id:string){setResolving(id);await fetch('/api/admin/incident',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});location.reload()}
@@ -74,7 +74,7 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
   <nav className="console-tabs">{TABS.map(({id,label,Icon})=>
    <button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={17}/>{label}{id==='incidentes'&&incidents.length>0&&<b className="tab-badge">{incidents.length}</b>}</button>)}</nav>
 
-  {tab==='cenario'&&<ScenarioForm initial={scenario} defaultCast={defaultCast} voiceKeyConfigured={voiceKeyConfigured} scenarios={scenarios} faltaMigracao={faltaMigracao} chaves={chaves} chaveDeVoz={chaveDeVoz}/>}
+  {tab==='cenario'&&<ScenarioForm initial={scenario} defaultCast={defaultCast} voiceKeyConfigured={voiceKeyConfigured} scenarios={scenarios} faltaMigracao={faltaMigracao} chaves={chaves} chaveDeVoz={chaveDeVoz} turmas={turmas} faltaTurmas={faltaTurmas}/>}
 
   {tab==='pessoas'&&<section className="panel">
    <h2>Quem entrou, quem exercitou, o que saiu</h2>

@@ -35,7 +35,9 @@ with checagens(migracao, o_que_cria, presente) as (values
  ('023 sessão sem dono',     'encerrar_sessoes_ociosas()', exists(select 1 from pg_proc where proname='challenge_encerrar_sessoes_ociosas')),
  ('024 instrutor administra', 'delete por instrutor',    exists(select 1 from pg_policies where tablename='challenge_sessions' and policyname='instructor deletes any session')),
  ('025 relógio no servidor', 'sessions.elapsed_ms',     exists(select 1 from information_schema.columns where table_name='challenge_sessions' and column_name='elapsed_ms')),
- ('026 falhas da tela',      'challenge_client_failures', exists(select 1 from information_schema.tables where table_name='challenge_client_failures'))
+ ('026 falhas da tela',      'challenge_client_failures', exists(select 1 from information_schema.tables where table_name='challenge_client_failures')),
+ ('027 lastro da evidência', 'evidence.support',        exists(select 1 from information_schema.columns where table_name='challenge_evidence' and column_name='support')),
+ ('028 turma própria',       'challenge_turmas',        exists(select 1 from information_schema.tables where table_name='challenge_turmas'))
 )
 select
  case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,

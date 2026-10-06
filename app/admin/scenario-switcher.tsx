@@ -3,11 +3,11 @@ import{useMemo,useState}from'react';import{useRouter}from'next/navigation';
 import{quandoCurto}from'@/lib/mundo/quando';
 import{BookmarkPlus,Copy,Pencil,Play,PowerOff,Search,Trash2}from'lucide-react';
 import{Modal,useDialogo}from'@/app/ui/dialogo';
-import{CodigoDoMundo}from'./codigo-do-mundo';
+import{CodigoDoMundo}from'./codigo-do-mundo';import{TurmaDoMundo,type TurmaResumo}from'./turma-do-mundo';
 
 export type ScenarioRow={key:string;title:string;domain:string;seat_role:string;
  is_template:boolean;active:boolean;created_from:string|null;updated_at:string|null;join_code?:string|null;
- live_since?:string|null;auto_off_at?:string|null;idle_hours?:number|null};
+ live_since?:string|null;auto_off_at?:string|null;idle_hours?:number|null;turma_id?:string|null};
 
 const temJanela=(s:ScenarioRow)=>s.idle_hours!==undefined||s.live_since!==undefined;
 const quando=quandoCurto;
@@ -17,8 +17,8 @@ const quando=quandoCurto;
 // empurrar o resto da tela para baixo a cada semestre.
 const VISIVEIS=3;
 
-export function ScenarioSwitcher({scenarios,currentKey,faltaMigracao}:{
- scenarios:ScenarioRow[];currentKey:string;faltaMigracao?:boolean}){
+export function ScenarioSwitcher({scenarios,currentKey,faltaMigracao,turmas,faltaTurmas}:{
+ scenarios:ScenarioRow[];currentKey:string;faltaMigracao?:boolean;turmas?:TurmaResumo[];faltaTurmas?:boolean}){
  const router=useRouter();
  const{confirmar,perguntar,elemento:dialogo}=useDialogo();
  const[busy,setBusy]=useState('');
@@ -103,6 +103,8 @@ export function ScenarioSwitcher({scenarios,currentKey,faltaMigracao}:{
     <small>{[scenario.domain,scenario.seat_role].filter(Boolean).join(' · ')}
      {scenario.created_from?` · a partir de ${scenario.created_from}`:''}</small></span>
    {scenario.active&&<CodigoDoMundo codigo={scenario.join_code||null} titulo={scenario.title}/>}
+   <TurmaDoMundo scenarioKey={scenario.key} turmaId={scenario.turma_id??null}
+    turmas={turmas||[]} indisponivel={faltaTurmas}/>
    {/* Antes da 018 estas colunas não vêm na consulta. Desenhar o campo assim
        mesmo daria um controle que não controla nada: mexer nele falharia. */}
    {temJanela(scenario)&&<span className="mundo-janela">

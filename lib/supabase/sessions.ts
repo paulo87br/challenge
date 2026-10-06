@@ -1,5 +1,6 @@
 import{createSupabaseAdminClient,createSupabaseServerClient}from'./server';
-import type{Debrief,EngineLog,EvidenceSignal,TurnDiagnostic,WorldState}from'@/lib/simulation/types';
+import{deduplicar,calibrar,somenteDaRegua}from'@/lib/simulation/sinais';
+import type{Competency,Debrief,EngineLog,EvidenceSignal,TurnDiagnostic,WorldState}from'@/lib/simulation/types';
 import{defaultScenario,worldFromScenario,type ScenarioConfig}from'@/lib/simulation/scenario';
 import{codigoValido,normalizaCodigo}from'@/lib/mundo/codigo';
 import type{MundoNoAr}from'@/lib/mundo/tipos';
@@ -280,18 +281,51 @@ export async function sessaoAceitaTurno(sessionId:string):Promise<{ok:true}|{ok:
 // Evidence is written with the service role on purpose: the policies give the
 // participant no insert on it, so the assessment record cannot be forged from
 // the browser even by someone who reads the bundle.
+/**
+ * O que a sessão já registrou, para não registrar de novo.
+ *
+ * Uma pessoa que repete a mesma conduta ao longo da sessão gerava um sinal novo
+ * a cada vez. Com 4,4 sinais por ação, o número media digitação.
+ */
+async function sinaisJaRegistrados(admin:any,sessionId:string):Promise<EvidenceSignal[]>{
+ const{data}=await admin.from('challenge_evidence')
+  .select('competency,behavior,evidence,strength,confidence,polarity,corroboration_required')
+  .eq('session_id',sessionId).order('created_at').limit(400);
+ return (data||[]) as EvidenceSignal[];
+}
+
 export async function recordTurnRows(sessionId:string,action:any,signals:EvidenceSignal[],simulatedMinute?:number,
- turn?:{requestId:string;durationMs:number;model:string;provider:string;usage:{inputTokens:number;outputTokens:number;calls:number};diagnostic:TurnDiagnostic;logs:EngineLog[]}){
+ turn?:{requestId:string;durationMs:number;model:string;provider:string;usage:{inputTokens:number;outputTokens:number;calls:number};diagnostic:TurnDiagnostic;logs:EngineLog[]},
+ framework?:Competency[]){
  const admin=createSupabaseAdminClient();
  if(!admin||!sessionId)return 'unavailable' as const;
+
+ // O caminho da evidência entre o Observer e a linha gravada: fora da régua
+ // não entra, repetição não vira sinal novo, e cada sinal carrega quanto se
+ // apoia no que a pessoa escreveu neste turno -- que é a única comparação
+ // confiável, porque aqui a ação é a do próprio turno.
+ const daRegua=somenteDaRegua(signals as any[],framework||[]);
+ const semRepetidos=deduplicar(daRegua.sinais,await sinaisJaRegistrados(admin,sessionId));
+ const comLastro=calibrar(semRepetidos.sinais,String(action?.text||''));
+ const aGravar=comLastro.sinais;
  const telemetry=admin.from('challenge_telemetry').insert({
   session_id:sessionId,action:String(action?.action||'unknown'),channel:String(action?.channel||'unknown'),
   character_id:action?.characterId??null,body:action?.text??null,metadata:action?.metadata??{},simulated_minute:simulatedMinute??null});
- const evidence=signals.length?admin.from('challenge_evidence').insert(signals.map(signal=>({
+ const linha=(signal:any)=>({
   session_id:sessionId,competency:signal.competency,behavior:signal.behavior,evidence:signal.evidence,
   strength:Number(signal.strength)||0,confidence:Number(signal.confidence)||0,polarity:signal.polarity,
-  corroboration_required:Boolean(signal.corroboration_required)}))):Promise.resolve({error:null});
- const[t,e]=await Promise.all([telemetry,evidence]);
+  corroboration_required:Boolean(signal.corroboration_required)});
+ const comColunasNovas=(signal:any)=>({...linha(signal),support:signal.lastro||'nao_medido',repeated:signal.repetido||1});
+ const gravar=async()=>{
+  if(!aGravar.length)return{error:null};
+  const r=await admin.from('challenge_evidence').insert(aGravar.map(comColunasNovas));
+  // Antes da 027 as colunas não existem. Gravar sem elas é melhor que perder a
+  // evidência do turno inteiro.
+  if(r.error&&/support|repeated/.test(String(r.error.message)))
+   return admin.from('challenge_evidence').insert(aGravar.map(linha));
+  return r;
+ };
+ const[t,e]=await Promise.all([telemetry,gravar()]);
  if((t as any).error||(e as any).error)return 'failed' as const;
 
  // Engine diagnostics used to live only in the participant's browser, which is

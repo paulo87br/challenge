@@ -40,8 +40,9 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  // cuja função é justamente dizer o que falta.
  const LISTA='key,title,domain,seat_role,is_template,active,created_from,updated_at';
  const tentar=(campos:string)=>supabase.from('challenge_scenarios').select(campos).order('created_at',{ascending:false});
- const completo=await tentar(`${LISTA},join_code,live_since,auto_off_at,idle_hours`);
- const comCodigo=completo.error?await tentar(`${LISTA},join_code`):completo;
+ const completo=await tentar(`${LISTA},join_code,live_since,auto_off_at,idle_hours,turma_id`);
+ const comJanela=completo.error?await tentar(`${LISTA},join_code,live_since,auto_off_at,idle_hours`):completo;
+ const comCodigo=comJanela.error?await tentar(`${LISTA},join_code`):comJanela;
  const basico=comCodigo.error?await tentar(LISTA):comCodigo;
  const scenarioRows=basico.data;
  const faltaMigracao=Boolean(comCodigo.error);
@@ -174,7 +175,14 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
    ultimas:[...queixas.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([headline,n])=>({headline,n}))};
  }
 
+ // Turmas: antes da 028 a tabela não existe, e o Studio diz isso no controle em
+ // vez de mostrar um campo que falha ao ser usado.
+ const turmasRes=await supabase.from('challenge_turmas').select('id,nome').eq('arquivada',false).order('created_at',{ascending:false});
+ const turmas=(turmasRes.data||[])as any[];
+ const faltaTurmas=Boolean(turmasRes.error);
+
  return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any} faltaMigracao={faltaMigracao}
   usuario={{nome:nomeDoUsuario(user),email:String(user.email||'')}} chaves={chaves} chaveDeVoz={chaveDeVoz} consumo={consumo}
-  falhasDaTela={falhasDaTela} faltaTabelaDeFalhas={faltaTabelaDeFalhas} saudeDosTurnos={saudeDosTurnos}/>;
+  falhasDaTela={falhasDaTela} faltaTabelaDeFalhas={faltaTabelaDeFalhas} saudeDosTurnos={saudeDosTurnos}
+  turmas={turmas} faltaTurmas={faltaTurmas}/>;
 }
