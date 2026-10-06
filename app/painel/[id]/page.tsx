@@ -30,7 +30,11 @@ export default async function SessionDetail({params}:{params:{id:string}}){
  const debrief=session.debrief as any;
  // Replay: what the participant did, interleaved with what the world answered,
  // in simulated time rather than wall-clock order.
- const worldEvents=(world?.events||[]).filter((event:any)=>event.visible)
+ // O que o participante escreveu está em world.events E na telemetria: somar os
+ // dois mostrava cada mensagem dele duas vezes -- 73 linhas para 51 momentos.
+ // O mundo entra pelos eventos; a pessoa, pela telemetria, que é o registro
+ // autoritativo do que ela fez.
+ const worldEvents=(world?.events||[]).filter((event:any)=>event.visible&&event.sender!=='Você')
   .map((event:any)=>({at:event.at,kind:'mundo',who:event.sender,channel:event.channel,text:event.subject?`${event.subject} — ${event.body}`:event.body}));
  const actions=(telemetry||[]).map(entry=>({at:entry.simulated_minute??0,kind:'participante',who:'Você',channel:entry.channel,text:entry.body||entry.action}));
  const replay=[...worldEvents,...actions].sort((a,b)=>a.at-b.at);

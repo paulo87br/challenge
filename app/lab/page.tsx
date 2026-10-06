@@ -59,6 +59,11 @@ useEffect(()=>{(async()=>{
   if(Array.isArray(data.news))setNews(data.news);
   setCallsEnabled(Boolean(data.callsEnabled));
   if(data.durationMinutes)setDurationMinutes(Number(data.durationMinutes)||0);
+    // O relógio é da sessão, não do aparelho. Quem alterna entre mundos limpa o
+    // estado local, e sem isto voltaria com quarenta minutos novos. O maior dos
+    // dois: o servidor só sabe o que foi sincronizado, o navegador conta entre
+    // uma sincronização e outra.
+    if(typeof data.session?.elapsed_ms==='number')setElapsedMs(atual=>Math.max(atual,Number(data.session.elapsed_ms)||0));
   if(typeof data.evidenceCount==='number')setServerEvidence(data.evidenceCount);
   // The server is the source of truth once a session exists there, except
   // against a browser that is further along: whichever world recorded more
@@ -144,6 +149,11 @@ async function restart(){setAnsweredCalls({});
   if(Array.isArray(data.news))setNews(data.news);
   setCallsEnabled(Boolean(data.callsEnabled));
    if(data.durationMinutes)setDurationMinutes(Number(data.durationMinutes)||0);
+    // O relógio é da sessão, não do aparelho. Quem alterna entre mundos limpa o
+    // estado local, e sem isto voltaria com quarenta minutos novos. O maior dos
+    // dois: o servidor só sabe o que foi sincronizado, o navegador conta entre
+    // uma sincronização e outra.
+    if(typeof data.session?.elapsed_ms==='number')setElapsedMs(atual=>Math.max(atual,Number(data.session.elapsed_ms)||0));
    if(typeof data.evidenceCount==='number')setServerEvidence(data.evidenceCount);
   if(typeof data.evidenceCount==='number')setServerEvidence(data.evidenceCount);
    addClientLog('session','ok','Sessão reiniciada no servidor',{sessionId:data.session.id});
@@ -193,7 +203,7 @@ async function act(channel:'mail'|'chat',action:string,characterId?:string,extra
    if(Array.isArray(data.observer?.signals)){setEvidence(prev=>[...prev,...data.observer.signals]);
     if(data.observer.signals.length)setServerEvidence(current=>(current??0)+data.observer.signals.length)}
    addClientLog('client','ok','Motor respondeu e o Director será aplicado',{eventCount:data.director?.events?.length||0});
-   setWorld(s=>{const advanced=applyDirector(s,data.director);syncSession({world:advanced});return advanced});
+   setWorld(s=>{const advanced=applyDirector(s,data.director);syncSession({world:advanced,elapsedMs});return advanced});
    return;
   }
   setRuntimeError('A fila não liberou sua vez a tempo. Sua mensagem continua registrada; tente enviar de novo.');
@@ -245,11 +255,12 @@ async function generateDebrief(porTempo:unknown=false){
    body:JSON.stringify({seat:world.seat,evidence,telemetry:world.telemetry,engine,sessionId,compulsorio:porTempo===true,world:{title:world.title,elapsedMinutes:world.minute-initialWorld.minute}})});
   const data=await r.json();
   if(!r.ok)throw new Error(data.detail||data.error||`HTTP ${r.status}`);
-  const finished={...data,generatedAt:Date.now()};setDebrief(finished);syncSession({debrief:finished,status:'completed'});
+  const finished={...data,generatedAt:Date.now()};setDebrief(finished);syncSession({debrief:finished,status:'completed',elapsedMs});
   addClientLog('debrief','ok','Debrief entregue ao participante',{headline:data.headline});
  }catch(error){
   const message=error instanceof Error?error.message:'Falha desconhecida.';
   setDebriefError(message);addClientLog('debrief','error','Falha ao gerar debrief',{error:message});
+  contarFalha('debrief',message,{evidencias:totalEvidence,acoes:world.telemetry.length});
  }finally{setBusy(false)}
 }
 // Called after a turn and after the debrief, never on a clock tick: the world
@@ -258,12 +269,19 @@ async function togglePause(){
  const next=!paused;
  setPaused(next);
  addClientLog('session',next?'info':'ok',next?'Sessão pausada':'Sessão retomada',{elapsedMs});
- syncSession({status:next?'paused':'active'});
+ syncSession({status:next?'paused':'active',elapsedMs});
 }
-async function syncSession(patch:{world?:WorldState;debrief?:Debrief|null;status?:string}){
+// Contar para o servidor o que quebrou aqui. Nunca espera, nunca lança: quem
+// está travado não pode travar duas vezes.
+function contarFalha(stage:string,message:string,detail?:Record<string,unknown>){
+ try{fetch('/api/logs/falha',{method:'POST',headers:{'content-type':'application/json'},
+  keepalive:true,body:JSON.stringify({stage,message:String(message).slice(0,500),sessionId:sessionId||null,detail:detail||{}})}).catch(()=>{})}
+ catch{}
+}
+async function syncSession(patch:{world?:WorldState;debrief?:Debrief|null;status?:string;elapsedMs?:number}){
  if(!sessionId)return;
  try{const r=await fetch('/api/session/state',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sessionId,...patch})});const d=await r.json();if(!r.ok||d.saved===false)addClientLog('session','warn','O servidor não confirmou o salvamento',{status:r.status,detail:d.detail})}
- catch(error){addClientLog('session','warn','Falha ao salvar a sessão no Supabase',{error:String(error)})}
+ catch(error){addClientLog('session','warn','Falha ao salvar a sessão no Supabase',{error:String(error)});contarFalha('sessao',String(error))}
 }
 function addUpload(file:UploadedFile){setUploads(current=>[...current,file]);setSelectedFile(file.id);addClientLog('upload','ok','Documento anexado pelo participante',{name:file.name,size:file.size,kind:file.kind});setWorld(current=>recordTelemetry(current,{action:'upload_document',channel:'files',text:file.name,metadata:{size:file.size,kind:file.kind}}))}
 function submitOnCtrlEnter(e:KeyboardEvent,submit:()=>void){if(e.key==='Enter'&&e.ctrlKey){e.preventDefault();submit()}}

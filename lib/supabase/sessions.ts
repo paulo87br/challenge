@@ -82,6 +82,29 @@ async function loadScenario(supabase:any,scenarioKey?:string):Promise<ScenarioCo
  return legado?{...defaultScenario,...legado,temperature:legado.temperature||{}}:defaultScenario;
 }
 
+/**
+ * Ler uma sessão sem transformar erro em ausência.
+ *
+ * Pedir elapsed_ms num banco que ainda não tem a 025 faz o select falhar; como
+ * o erro era ignorado, "não consegui ler" virava "não existe" e cada entrada
+ * pelo código criava outra sessão por cima da anterior. Degradar em degraus,
+ * na ordem em que as colunas nasceram, é o que o Studio já fazia -- aqui faltava.
+ */
+const CAMPOS_SESSAO='id,world_state,debrief,status,scenario_key';
+async function lerSessoes(supabase:any,userId:string,scenarioKey?:string){
+ const monta=(campos:string)=>{
+  const q=supabase.from('challenge_sessions').select(campos).eq('user_id',userId)
+   .in('status',['active','paused','completed']).order('started_at',{ascending:false});
+  return scenarioKey?q.eq('scenario_key',scenarioKey):q;
+ };
+ const completo=await monta(`${CAMPOS_SESSAO},elapsed_ms`);
+ if(!completo.error)return{linhas:(completo.data||[])as any[],erro:null};
+ const basico=await monta(CAMPOS_SESSAO);
+ // Um erro aqui não é "sem sessão": quem chama precisa saber a diferença, ou
+ // cria uma corrida nova em cima de uma que existe.
+ return{linhas:(basico.data||[])as any[],erro:basico.error?String(basico.error.message):null};
+}
+
 export async function ensureSession():Promise<Entrada|null>{
  const supabase=createSupabaseServerClient();
  if(!supabase)return null;
@@ -92,10 +115,20 @@ export async function ensureSession():Promise<Entrada|null>{
  // como se a prova entregue reaparecesse em branco sobre a mesa. Agora a
  // sessão encerrada volta com o debrief dela, e começar outra é um ato
  // explícito -- o botão Recomeçar.
- const{data:existing}=await supabase.from('challenge_sessions')
-  .select('id,world_state,debrief,status,scenario_key').eq('user_id',user.id)
-  .in('status',['active','paused','completed'])
-  .order('started_at',{ascending:false}).limit(1).maybeSingle();
+ const{linhas:minhas,erro:erroDeLeitura}=await lerSessoes(supabase,user.id);
+ if(erroDeLeitura)throw new Error(erroDeLeitura);
+ const porMundo=new Map<string,any>();
+ for(const linha of minhas)if(!porMundo.has(linha.scenario_key))porMundo.set(linha.scenario_key,linha);
+ // Com corrida viva em mais de um mundo, abrir /lab sem código não tem resposta
+ // única: pegar a mais recente colocaria a pessoa no mundo errado sem ela
+ // perceber. A tela de escolha já existe e é onde essa decisão pertence.
+ const existing=porMundo.size===1?[...porMundo.values()][0]:null;
+ if(porMundo.size>1){
+  const{mundos,faltaMigracao}=await mundosNoAr(supabase);
+  const meus=[...porMundo.keys()];
+  const ordenados=[...mundos].sort((a,b)=>Number(meus.includes(b.key))-Number(meus.includes(a.key)));
+  return{escolha:ordenados,faltaMigracao,usuario:{nome:nomeDoUsuario(user),email:String(user.email||'')}};
+ }
  const scenario=await loadScenario(supabase,existing?.scenario_key);
  if(existing){
   // A session created before the Studio could author anything carries an empty
@@ -137,8 +170,8 @@ async function criarSessao(supabase:any,userId:string,scenario:ScenarioConfig):P
  * o mundo, não a sessão: duas turmas no mesmo cenário compartilham o código e
  * cada pessoa continua tendo a sua sessão.
  */
-export async function entrarNoMundo(codigoCru:string,abandonarAtual=false):Promise<
- SessionBundle|{erro:'codigo_invalido'|'codigo_nao_encontrado'}|{conflito:{atual:MundoNoAr;novo:MundoNoAr}}|null>{
+export async function entrarNoMundo(codigoCru:string):Promise<
+ SessionBundle|{erro:'codigo_invalido'|'codigo_nao_encontrado'}|null>{
  const supabase=createSupabaseServerClient();
  if(!supabase)return null;
  const{data:{user}}=await supabase.auth.getUser();
@@ -150,31 +183,16 @@ export async function entrarNoMundo(codigoCru:string,abandonarAtual=false):Promi
  const destino=mundos.find(m=>m.join_code===codigo);
  if(!destino)return{erro:'codigo_nao_encontrado'};
 
- const{data:emAndamento}=await supabase.from('challenge_sessions')
-  .select('id,world_state,debrief,status,scenario_key').eq('user_id',user.id)
-  .in('status',['active','paused','completed'])
-  .order('started_at',{ascending:false}).limit(1).maybeSingle();
-
- if(emAndamento){
-  // Mesmo mundo: o código é só o caminho de volta, nada a decidir.
-  if(emAndamento.scenario_key===destino.key){
-   const scenario=await loadScenario(supabase,destino.key);
-   return {...(await comEvidencia(supabase,emAndamento,scenario))};
-  }
-  // Outro mundo: trocar descarta uma corrida em andamento, e isso não se faz
-  // por dedução. Quem decide é a pessoa, na tela, sabendo o que perde.
-  if(!abandonarAtual){
-   const atual=mundos.find(m=>m.key===emAndamento.scenario_key)
-    ||{key:emAndamento.scenario_key,title:(emAndamento.world_state as any)?.title||emAndamento.scenario_key,
-       domain:'',seat_role:'',mission:'',join_code:null};
-   return{conflito:{atual,novo:destino}};
-  }
-  // Guardada, não apagada: uma corrida abandonada ainda é algo que o instrutor
-  // pode querer olhar, e a evidência presa a ela não é da pessoa para apagar.
-  await supabase.from('challenge_sessions')
-   .update({status:'abandoned',completed_at:new Date().toISOString()})
-   .eq('user_id',user.id).in('status',['active','paused']);
- }
+ // Uma corrida viva por mundo. Antes havia uma só por pessoa, e entrar noutro
+ // mundo obrigava a descartar a atual: quem conduz não conseguia testar um
+ // cenário novo sem perder a corrida em que estava, e um participante que
+ // errasse de código perdia a dele. O código identifica o mundo; a sessão
+ // daquele mundo é retomada se existir e criada se não.
+ const{linhas,erro}=await lerSessoes(supabase,user.id,destino.key);
+ // Falhar ao ler não pode virar uma corrida nova por cima da que existe.
+ if(erro)throw new Error(erro);
+ const daquele=linhas[0];
+ if(daquele)return{...(await comEvidencia(supabase,daquele,await loadScenario(supabase,destino.key)))};
  return criarSessao(supabase,user.id,await loadScenario(supabase,destino.key));
 }
 
@@ -205,23 +223,58 @@ export async function restartSession():Promise<SessionBundle|null>{
   .order('started_at',{ascending:false}).limit(1).maybeSingle();
  // Kept, not deleted: an abandoned run is still something the instructor may
  // want to look at, and the evidence attached to it is not the person's to erase.
- await supabase.from('challenge_sessions')
+ // Só o mundo em que a pessoa está. Abandonar todas derrubava também a corrida
+ // dela em outro mundo, que recomeçar aqui não tem por que tocar.
+ const consulta=supabase.from('challenge_sessions')
   .update({status:'abandoned',completed_at:new Date().toISOString()})
   .eq('user_id',user.id).in('status',['active','paused','completed']);
+ await(atual?.scenario_key?consulta.eq('scenario_key',atual.scenario_key):consulta);
  const scenario=await loadScenario(supabase,atual?.scenario_key);
  return criarSessao(supabase,user.id,scenario);
 }
 
-export async function saveSessionState(sessionId:string,patch:{world?:WorldState;debrief?:Debrief|null;status?:string}){
+export async function saveSessionState(sessionId:string,patch:{world?:WorldState;debrief?:Debrief|null;status?:string;elapsedMs?:number}){
  const supabase=createSupabaseServerClient();
  if(!supabase)return false;
  const update:Record<string,unknown>={updated_at:new Date().toISOString()};
  if(patch.world)update.world_state=patch.world;
  if(patch.debrief!==undefined)update.debrief=patch.debrief;
+ // O tempo decorrido passa a ser fato da sessão: com uma corrida por mundo,
+ // alternar entre mundos limpa o estado local, e sem isto voltar daria o
+ // relógio zerado a quem já gastou os quarenta minutos.
+ if(typeof patch.elapsedMs==='number'&&Number.isFinite(patch.elapsedMs))
+  update.elapsed_ms=Math.max(0,Math.round(patch.elapsedMs));
  if(patch.status){update.status=patch.status;if(patch.status==='completed')update.completed_at=new Date().toISOString();if(patch.status==='active')update.completed_at=null}
  const{error}=await supabase.from('challenge_sessions').update(update).eq('id',sessionId);
+ if(error&&'elapsed_ms'in update&&/elapsed_ms/.test(error.message)){
+  const{elapsed_ms,...semRelogio}=update;
+  const retry=await supabase.from('challenge_sessions').update(semRelogio).eq('id',sessionId);
+  if(retry.error)throw new Error(retry.error.message);
+  return true;
+ }
  if(error)throw new Error(error.message);
  return true;
+}
+
+/**
+ * A sessão ainda aceita turno?
+ *
+ * A tranca do encerramento estava só no navegador: a rota de turno recebia o
+ * mundo e a ação e executava, sem olhar o estado. Encerrado tem de ser
+ * encerrado no lugar onde o fato mora.
+ */
+export async function sessaoAceitaTurno(sessionId:string):Promise<{ok:true}|{ok:false;motivo:string}>{
+ const supabase=createSupabaseServerClient();
+ if(!supabase)return{ok:true};
+ const{data,error}=await supabase.from('challenge_sessions')
+  .select('status,debrief').eq('id',sessionId).maybeSingle();
+ // Sessão que não se consegue ler não é sessão encerrada: na dúvida, deixar
+ // jogar é melhor que travar alguém no meio da aula por um erro de leitura.
+ if(error||!data)return{ok:true};
+ if(data.debrief)return{ok:false,motivo:'Esta sessão já foi encerrada e tem uma leitura entregue.'};
+ if(data.status==='completed')return{ok:false,motivo:'Esta sessão já foi encerrada.'};
+ if(data.status==='abandoned')return{ok:false,motivo:'Esta sessão foi encerrada por quem conduz o Challenge.'};
+ return{ok:true};
 }
 
 // Evidence is written with the service role on purpose: the policies give the

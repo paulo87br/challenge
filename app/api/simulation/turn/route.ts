@@ -1,4 +1,4 @@
-import{NextResponse}from'next/server';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider,type ProviderId}from'@/lib/ai/providers';import{artifactFor,fold,scenarioArtifacts,type ScenarioArtifact}from'@/lib/simulation/scenario-world';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows}from'@/lib/supabase/sessions';import{claimTurn,settleTurn,recordIncident,ESTIMATED_TOKENS_PER_TURN}from'@/lib/queue/rate';import{classify,FAILURE_LABELS}from'@/lib/ai/errors';
+import{NextResponse}from'next/server';import{complete,parseJson,DEFAULT_PROVIDER,defaultModel,isProvider,type ProviderId}from'@/lib/ai/providers';import{artifactFor,fold,scenarioArtifacts,type ScenarioArtifact}from'@/lib/simulation/scenario-world';import{DIRECTOR_PROMPT,OBSERVER_PROMPT}from'@/lib/ai/prompts';import type{DirectorResult,WorldEvent,EngineLog,TurnDiagnostic,ObserverResult}from'@/lib/simulation/types';import{normalizeEvents}from'@/lib/simulation/normalize';import{recordTurn}from'@/lib/logs/store';import{recordTurnRows,sessaoAceitaTurno}from'@/lib/supabase/sessions';import{claimTurn,settleTurn,recordIncident,ESTIMATED_TOKENS_PER_TURN}from'@/lib/queue/rate';import{classify,FAILURE_LABELS}from'@/lib/ai/errors';import{respostaDoPersonagem,mencoesDoTurno,cascata}from'@/lib/simulation/resposta';
 
 type Usage={inputTokens:number;outputTokens:number;calls:number};
 
@@ -25,8 +25,11 @@ export async function POST(req:Request){
  const log=(stage: string,status:EngineLog['status'],message:string,meta?:Record<string,unknown>)=>logs.push({id:crypto.randomUUID(),at:Date.now(),stage,status,message,meta});
  const buildDiagnostic=(director:DirectorResult,action:any,chars:any[],elapsed:number,observer:ObserverResult|null):TurnDiagnostic=>{
   const events=director.events||[]; const chats=events.filter((e:any)=>e.channel==='chat'); const files=events.filter((e:any)=>e.channel==='files');
-  const mentions=[...new Set(chats.flatMap((e:any)=>e.mentionedCharacterIds||[]))];
-  const cascaded=mentions.filter(id=>events.some((e:any)=>e.channel==='chat'&&e.characterId===id));
+  // Menção e handoff não são assunto de um canal só: marcar alguém num e-mail
+  // vale tanto quanto marcar numa conversa, e a pessoa pode voltar por onde
+  // quiser. Olhar só o chat fazia todo turno de e-mail parecer sem efeito.
+  const mentions=mencoesDoTurno(events);
+  const cascaded=cascata(events,mentions);
   const fallback=logs.some(l=>l.stage==='artifact'&&l.status==='warn'&&/fallback/i.test(l.message));
   const hasArtifact=files.length>0;
   const artifactNotice=chats.some((e:any)=>e.subject==='Arquivo disponível'||ANNOUNCES_AVAILABILITY.test(String(e.body||'')));
@@ -36,8 +39,11 @@ export async function POST(req:Request){
   // or scheduled into the future.
   const addressed=action.characterId as string|undefined;
   const addressedName=addressed?(chars.find(c=>c.id===addressed)?.name||addressed):'';
-  const answered=!addressed||events.some((e:any)=>e.channel==='chat'&&e.characterId===addressed&&e.visible!==false&&(Number(e.delay_minutes)||0)===0);
-  checks.push({id:'reply',status:!addressed?'attention':answered?'ok':'error',label:'Resposta',detail:!addressed?'Nenhum personagem foi endereçado.':answered?`${addressedName} respondeu de forma visível.`:`${addressedName} não produziu resposta visível: o participante vê silêncio.`});
+  const{respondeu:answered,canal:canalDaResposta}=respostaDoPersonagem(events,addressed);
+  checks.push({id:'reply',status:!addressed?'attention':answered?'ok':'error',label:'Resposta',
+   detail:!addressed?'Nenhum personagem foi endereçado.'
+    :answered?`${addressedName} respondeu de forma visível${canalDaResposta&&canalDaResposta!==action.channel?` (por ${canalDaResposta})`:''}.`
+    :`${addressedName} não produziu resposta visível: o participante vê silêncio.`});
   checks.push({id:'director',status:'ok',label:'Director',detail:`${events.length} evento(s) gerado(s); avanço de ${Number(director.clock_advance_minutes)||0} min.`});
   checks.push({id:'mentions',status:mentions.length===0?'attention':'ok',label:'Menções',detail:mentions.length?`${mentions.length} pessoa(s) envolvida(s): ${mentions.map(id=>chars.find(c=>c.id===id)?.name||id).join(', ')}.`:'Nenhuma menção identificada no turno.'});
   checks.push({id:'cascade',status:mentions.length===0?'attention':cascaded.length===mentions.length?'ok':'error',label:'Cascata',detail:mentions.length===0?'Não houve handoff entre personagens.':`${cascaded.length}/${mentions.length} pessoa(s) mencionada(s) responderam.`});
@@ -70,6 +76,12 @@ export async function POST(req:Request){
   const competencies:Array<{code:string;name:string;definition:string}>=Array.isArray((await Promise.resolve(requestedCompetencies)))?requestedCompetencies:[];
   const usage:Usage={inputTokens:0,outputTokens:0,calls:0};
   if(!world||!action)return NextResponse.json({error:'world_and_action_required'},{status:400});
+ // Encerrado tem de ser encerrado onde o fato mora. A tranca existia só na tela:
+ // o servidor recebia mundo e ação e executava, sem olhar o estado da sessão.
+ if(sessionId){
+  const porta=await sessaoAceitaTurno(String(sessionId));
+  if(!porta.ok)return NextResponse.json({error:'sessao_encerrada',detail:porta.motivo},{status:409});
+ }
   const target=action.characterId?world.characters?.find((c:any)=>c.id===action.characterId):null;
   // Admission control before anything is spent. Without this, two people in the
   // same minute on Groq's free tier means one of them gets a 502.

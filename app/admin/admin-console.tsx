@@ -22,7 +22,7 @@ export type TurnRow={id:string;requestId:string;createdAt:string;severity:string
 const TABS=[{id:'cenario',label:'Cenário',Icon:SlidersHorizontal},{id:'pessoas',label:'Quem entrou',Icon:Users},{id:'motor',label:'Motor',Icon:Bug},{id:'incidentes',label:'Incidentes',Icon:TriangleAlert}];
 const when=quandoCurto;
 
-export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao,usuario,chaves,chaveDeVoz,consumo}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean;usuario?:{nome:string;email:string};chaves?:Record<string,{estado:string;tamanho:number}>;chaveDeVoz?:{estado:string;tamanho:number};consumo?:Record<string,{modelos:Record<string,UsoPorModelo>;voz:UsoDeVoz}>}){
+export function AdminConsole({scenario,defaultCast,participants,turns,incidents,limits,voiceKeyConfigured,scenarios,faltaMigracao,usuario,chaves,chaveDeVoz,consumo,falhasDaTela,faltaTabelaDeFalhas,saudeDosTurnos}:{scenario:ScenarioConfig;defaultCast:Character[];participants:Participant[];turns:TurnRow[];incidents:Incident[];limits:RateLimit[];voiceKeyConfigured:boolean;scenarios:any[];faltaMigracao?:boolean;usuario?:{nome:string;email:string};chaves?:Record<string,{estado:string;tamanho:number}>;chaveDeVoz?:{estado:string;tamanho:number};consumo?:Record<string,{modelos:Record<string,UsoPorModelo>;voz:UsoDeVoz}>;falhasDaTela?:{id:string;session_id:string|null;stage:string;message:string;created_at:string;user_agent:string|null}[];faltaTabelaDeFalhas?:boolean;saudeDosTurnos?:Record<string,{total:number;erro:number;atencao:number;ok:number;ultimas:{headline:string;n:number}[]}>}){
  const[tab,setTab]=useState('cenario');
  const[resolving,setResolving]=useState('');
  async function resolver(id:string){setResolving(id);await fetch('/api/admin/incident',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});location.reload()}
@@ -116,6 +116,38 @@ export function AdminConsole({scenario,defaultCast,participants,turns,incidents,
     </div>
     <pre className="incident-message">{incident.message}</pre>
    </div>)}
+
+   {/* As três falhas que derrubaram uma turma inteira não eram incidentes de
+       motor, e por isso esta tela não sabia delas. Agora sabe. */}
+   <h2 style={{marginTop:26}}>O que quebrou na tela das pessoas</h2>
+   <p className="muted">Falhas do navegador de quem está jogando, fora de um turno — como o encerramento que não conclui. Elas não passam pelo motor, então nunca apareceram aqui.</p>
+   {faltaTabelaDeFalhas
+    ?<p className="muted">Falta aplicar a migração 026; até lá isto não é "nenhuma falha", é "não sei".</p>
+    :falhasDaTela?.length
+     ?<div className="falhas-tela">{falhasDaTela.map(f=><div className="incident" key={f.id}>
+        <div className="incident-head">
+         <span className="diagnostic-pill error">{f.stage}</span>
+         <span className="muted">{when(f.created_at)}{f.user_agent?` · ${f.user_agent.slice(0,60)}`:''}</span>
+        </div>
+        <pre className="incident-message">{f.message}</pre>
+       </div>)}</div>
+     :<p className="muted">Nenhuma falha de tela registrada.</p>}
+
+   <h2 style={{marginTop:26}}>Saúde dos turnos</h2>
+   <p className="muted">O diagnóstico de cada turno, somado. Um turno marcado como erro não interrompe ninguém — mas uma coluna inteira de erro quer dizer que o mundo está respondendo de um jeito que o motor não reconhece.</p>
+   {(()=>{const saude=saudeDosTurnos?.[mundo]||saudeDosTurnos?.['todos'];
+    if(!saude?.total)return <p className="muted">Nenhum turno neste mundo ainda.</p>;
+    const pct=(n:number)=>Math.round(100*n/saude.total);
+    return <>
+     <div className="saude-barras">
+      <span className="tag">{saude.total} turnos</span>
+      <span className="diagnostic-pill ok">{saude.ok} ok · {pct(saude.ok)}%</span>
+      <span className="diagnostic-pill attention">{saude.atencao} atenção · {pct(saude.atencao)}%</span>
+      <span className="diagnostic-pill error">{saude.erro} erro · {pct(saude.erro)}%</span>
+     </div>
+     {saude.ultimas.length>0&&<ul className="saude-lista">
+      {saude.ultimas.map(u=><li key={u.headline}><b>{u.n}×</b> {u.headline}</li>)}</ul>}
+    </>})()}
   </section>}
 
   {tab==='motor'&&<>

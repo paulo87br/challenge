@@ -1,5 +1,5 @@
 'use client';
-import{useState}from'react';import type{FormEvent}from'react';import{createSupabaseBrowserClient}from'@/lib/supabase/client';
+import{useState}from'react';import{Mail}from'lucide-react';import{recadoDeEntrada}from'@/lib/auth/recados';import type{FormEvent}from'react';import{createSupabaseBrowserClient}from'@/lib/supabase/client';
 type Provider='google'|'azure';
 
 export function LoginButtons({next,initialError,url,publishableKey}:{next:string;initialError:string;url:string;publishableKey:string}){
@@ -7,6 +7,12 @@ export function LoginButtons({next,initialError,url,publishableKey}:{next:string
  const[error,setError]=useState(initialError);
  const[email,setEmail]=useState('');
  const[sent,setSent]=useState('');
+ // O caminho do e-mail deixou de ficar aberto na cara de quem chega. Numa turma
+ // inteira ele é a pior porta: a cota do serviço é baixa, estoura para todo
+ // mundo de uma vez, e o SSO ao lado resolve na hora. Quem não tem conta Google
+ // nem Microsoft continua tendo o caminho, a um clique.
+ const[mostrarEmail,setMostrarEmail]=useState(false);
+ const recado=recadoDeEntrada(error);
 
  function client(){
   const supabase=createSupabaseBrowserClient(url,publishableKey);
@@ -39,16 +45,22 @@ export function LoginButtons({next,initialError,url,publishableKey}:{next:string
  </div>;
 
  return <>
-  {error&&<div className="runtime-error">{error}</div>}
-  <div className="login-actions">
+  {recado.texto&&<div className="runtime-error">{recado.texto}</div>}
+  <div className={'login-actions'+(recado.sugereSSO?' login-urgente':'')}>
    <button className="btn primary" disabled={busy!==null} onClick={()=>signIn('google')}>{busy==='google'?'Abrindo…':'Entrar com Google'}</button>
    <button className="btn" disabled={busy!==null} onClick={()=>signIn('azure')}>{busy==='azure'?'Abrindo…':'Entrar com Microsoft'}</button>
   </div>
-  <div className="login-divider"><span>ou</span></div>
-  <form className="login-email" onSubmit={signInWithEmail}>
-   <input className="input" type="email" required value={email} onChange={event=>setEmail(event.target.value)}
-    placeholder="seu@email.com" aria-label="Seu e-mail" autoComplete="email"/>
-   <button className="btn" type="submit" disabled={busy!==null}>{busy==='email'?'Enviando…':'Receber link por e-mail'}</button>
-  </form>
+  {!mostrarEmail
+   ?<button type="button" className="login-outro" onClick={()=>setMostrarEmail(true)}>
+      <Mail size={15}/>Não tenho nenhuma das duas</button>
+   :<>
+     <div className="login-divider"><span>ou</span></div>
+     <form className="login-email" onSubmit={signInWithEmail}>
+      <input className="input" type="email" required value={email} onChange={event=>setEmail(event.target.value)}
+       placeholder="seu@email.com" aria-label="Seu e-mail" autoComplete="email" autoFocus/>
+      <button className="btn" type="submit" disabled={busy!==null}>{busy==='email'?'Enviando…':'Receber link por e-mail'}</button>
+      <small className="muted">O link depende do serviço de e-mail e tem cota baixa. Numa turma, Google ou Microsoft é mais rápido e não falha.</small>
+     </form>
+    </>}
  </>;
 }

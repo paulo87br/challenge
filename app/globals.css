@@ -629,3 +629,10 @@ body.modal-aberto{overflow:hidden}
 .custo-tabela .people-row{grid-template-columns:minmax(0,2fr) .6fr 1fr 1fr 1fr}
 .custo-aviso{font-size:11px;line-height:1.5;margin-top:12px}
 @media(max-width:900px){.custo-total{align-items:flex-start}.custo-tabela .people-row{grid-template-columns:1fr 1fr}}
+.falhas-tela{display:flex;flex-direction:column;gap:10px}
+.saude-barras{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.saude-lista{margin:8px 0 0;padding-left:18px;color:#514a65;font-size:13px;line-height:1.7}
+.login-outro{margin-top:14px;border:0;background:transparent;color:#6d6680;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;text-decoration:underline;text-underline-offset:3px}
+.login-outro:hover{color:#211a38}
+.login-actions.login-urgente .btn{box-shadow:4px 4px 0 #12b89a}
+.login-email small{display:block;margin-top:8px;font-size:12px;line-height:1.5}

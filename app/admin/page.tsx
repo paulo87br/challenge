@@ -56,13 +56,20 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  // Consumo: tudo, não os 40 turnos que a aba do motor mostra. São poucas linhas
  // por sessão e é a única forma de somar a conta de uma turma inteira.
  const[turnosRes,{data:todasChamadas}]=await Promise.all([
-  todasAsLinhas<any>(()=>supabase.from('challenge_turns').select('session_id,provider,model,input_tokens,output_tokens').order('id')),
+  todasAsLinhas<any>(()=>supabase.from('challenge_turns').select('session_id,provider,model,input_tokens,output_tokens,severity,headline,created_at').order('id')),
   supabase.from('challenge_calls').select('session_id,seconds')
  ]);
  const evidence=evRes.linhas,telemetry=tlRes.linhas,todosTurnos=turnosRes.linhas;
  // Uma leitura pela metade vira número menor sem avisar: a tela precisa poder
  // dizer que o que mostra está por baixo.
  const leituraParcial=!evRes.completo||!tlRes.completo||!turnosRes.completo;
+ // O que quebrou na tela das pessoas. Antes da 026 a tabela não existe, e o
+ // Studio continua abrindo -- dizendo que não sabe, em vez de dizer que está
+ // tudo bem.
+ const falhasRes=await supabase.from('challenge_client_failures')
+  .select('id,session_id,stage,message,created_at,user_agent').order('created_at',{ascending:false}).limit(50);
+ const falhasDaTela=(falhasRes.data||[]) as any[];
+ const faltaTabelaDeFalhas=Boolean(falhasRes.error);
  const mundoDaSessao=new Map((sessions||[]).map(row=>[row.id,row.scenario_key||'—']));
  const consumo:Record<string,{modelos:Record<string,{model:string;provider:string;turnos:number;entrada:number;saida:number}>;voz:{chamadas:number;segundos:number}}>={};
  const balde=(chave:string)=>consumo[chave]||=({modelos:{},voz:{chamadas:0,segundos:0}});
@@ -155,6 +162,19 @@ export default async function Admin({searchParams}:{searchParams?:{cenario?:stri
  const chaveDeVoz=estadoDaVariavel('OPENAI_API_KEY');
  const voiceKeyConfigured=chaveDeVoz.estado==='ok';
 
+ // Saúde por mundo: o diagnóstico de cada turno somado, com as queixas mais
+ // repetidas. Era o dado que existia e ninguém olhava.
+ const saudeDosTurnos:Record<string,any>={};
+ for(const chave of ['todos',...new Set(todosTurnos.map(t=>mundoDaSessao.get(t.session_id)||'—'))]){
+  const meus=chave==='todos'?todosTurnos:todosTurnos.filter(t=>(mundoDaSessao.get(t.session_id)||'—')===chave);
+  const conta=(s:string)=>meus.filter(t=>t.severity===s).length;
+  const queixas=new Map<string,number>();
+  for(const t of meus)if(t.severity!=='ok'&&t.headline)queixas.set(t.headline,(queixas.get(t.headline)||0)+1);
+  saudeDosTurnos[chave]={total:meus.length,ok:conta('ok'),atencao:conta('attention'),erro:conta('error'),
+   ultimas:[...queixas.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([headline,n])=>({headline,n}))};
+ }
+
  return <AdminConsole scenario={scenario} defaultCast={initialWorld.characters} participants={participants} turns={turns} incidents={incidents} limits={(limitRows||[]) as any} voiceKeyConfigured={voiceKeyConfigured} scenarios={(scenarioRows||[]) as any} faltaMigracao={faltaMigracao}
-  usuario={{nome:nomeDoUsuario(user),email:String(user.email||'')}} chaves={chaves} chaveDeVoz={chaveDeVoz} consumo={consumo}/>;
+  usuario={{nome:nomeDoUsuario(user),email:String(user.email||'')}} chaves={chaves} chaveDeVoz={chaveDeVoz} consumo={consumo}
+  falhasDaTela={falhasDaTela} faltaTabelaDeFalhas={faltaTabelaDeFalhas} saudeDosTurnos={saudeDosTurnos}/>;
 }

@@ -2,9 +2,9 @@ import{NextResponse}from'next/server';import{saveSessionState}from'@/lib/supabas
 
 export async function POST(req:Request){
  try{
-  const{sessionId,world,debrief,status}=await req.json();
+  const{sessionId,world,debrief,status,elapsedMs}=await req.json();
   if(!sessionId)return NextResponse.json({error:'session_required'},{status:400});
-  const saved=await saveSessionState(sessionId,{world,debrief,status});
+  const saved=await saveSessionState(sessionId,{world,debrief,status,elapsedMs});
   return NextResponse.json({saved});
  }catch(error){
   const message=error instanceof Error?error.message:String(error);
