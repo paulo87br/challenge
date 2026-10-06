@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import{quando}from'@/lib/mundo/quando';
+import{quando}from'@/lib/mundo/quando';import{Reproducao}from'./reproducao';
 import{NavInstrutor}from'@/app/ui/nav-instrutor';
 import{createSupabaseAdminClient,createSupabaseServerClient}from'@/lib/supabase/server';
 import{NoAccess}from'../no-access';import{PrintButton}from'../print-button';import{buildProfile,profileSummary}from'@/lib/simulation/profile';
@@ -102,8 +102,12 @@ export default async function SessionDetail({params}:{params:{id:string}}){
    </div>)}
   </section>
 
-  <section className="panel"><h2>Replay</h2>
-   <p className="muted">A sessão em tempo simulado: o que a pessoa fez e o que o mundo respondeu.</p>
+  {world?.events?.length>0&&<Reproducao mundo={world} pessoa={String(email)}
+   sinais={(evidence||[]).filter((e:any)=>typeof e.simulated_minute==='number') as any}
+   regua={framework.map((c:any)=>({code:c.code,name:c.name}))}/>}
+
+  <section className="panel"><h2>Linha do tempo</h2>
+   <p className="muted">Tudo de uma vez, em tempo simulado: o que a pessoa fez e o que o mundo respondeu. A reprodução acima mostra o mesmo recorte a recorte.</p>
    <div className="replay">{replay.map((entry,i)=><div className={'replay-row replay-'+entry.kind} key={i}>
     <span className="replay-time">{clock(entry.at)}</span>
     <span className="replay-who"><b>{entry.who}</b><small>{entry.channel}</small></span>

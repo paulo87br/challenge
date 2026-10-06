@@ -315,13 +315,16 @@ export async function recordTurnRows(sessionId:string,action:any,signals:Evidenc
   session_id:sessionId,competency:signal.competency,behavior:signal.behavior,evidence:signal.evidence,
   strength:Number(signal.strength)||0,confidence:Number(signal.confidence)||0,polarity:signal.polarity,
   corroboration_required:Boolean(signal.corroboration_required)});
- const comColunasNovas=(signal:any)=>({...linha(signal),support:signal.lastro||'nao_medido',repeated:signal.repetido||1});
+ const comColunasNovas=(signal:any)=>({...linha(signal),support:signal.lastro||'nao_medido',repeated:signal.repetido||1,
+  // O minuto do mundo, não o horário de gravação: é o que permite ver o sinal
+  // surgir junto da ação que o produziu, na reprodução.
+  simulated_minute:simulatedMinute??null});
  const gravar=async()=>{
   if(!aGravar.length)return{error:null};
   const r=await admin.from('challenge_evidence').insert(aGravar.map(comColunasNovas));
   // Antes da 027 as colunas não existem. Gravar sem elas é melhor que perder a
   // evidência do turno inteiro.
-  if(r.error&&/support|repeated/.test(String(r.error.message)))
+  if(r.error&&/support|repeated|simulated_minute/.test(String(r.error.message)))
    return admin.from('challenge_evidence').insert(aGravar.map(linha));
   return r;
  };

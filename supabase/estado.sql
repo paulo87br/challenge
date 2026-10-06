@@ -37,7 +37,8 @@ with checagens(migracao, o_que_cria, presente) as (values
  ('025 relógio no servidor', 'sessions.elapsed_ms',     exists(select 1 from information_schema.columns where table_name='challenge_sessions' and column_name='elapsed_ms')),
  ('026 falhas da tela',      'challenge_client_failures', exists(select 1 from information_schema.tables where table_name='challenge_client_failures')),
  ('027 lastro da evidência', 'evidence.support',        exists(select 1 from information_schema.columns where table_name='challenge_evidence' and column_name='support')),
- ('028 turma própria',       'challenge_turmas',        exists(select 1 from information_schema.tables where table_name='challenge_turmas'))
+ ('028 turma própria',       'challenge_turmas',        exists(select 1 from information_schema.tables where table_name='challenge_turmas')),
+ ('029 evidência no tempo',  'evidence.simulated_minute', exists(select 1 from information_schema.columns where table_name='challenge_evidence' and column_name='simulated_minute'))
 )
 select
  case when presente then 'ok      ' else 'FALTA   ' end || migracao as situacao,
